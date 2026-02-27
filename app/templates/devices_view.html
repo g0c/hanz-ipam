@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3>Uređaj #{{ dev.id }}</h3>
+
+<ul class="list-group">
+  <li class="list-group-item"><strong>Hostname:</strong> {{ dev.hostname }}</li>
+  <li class="list-group-item"><strong>IP:</strong> {{ dev.ip_addr }}</li>
+  <li class="list-group-item">
+    <strong>Status:</strong>
+    {% if dev.status == 'active' %}
+      <span class="badge bg-success">active</span>
+    {% elif dev.status == 'offline' %}
+      <span class="badge bg-danger">offline</span>
+    {% elif dev.status == 'reserved' %}
+      <span class="badge bg-warning text-dark">reserved</span>
+    {% else %}
+      <span class="badge bg-secondary">unknown</span>
+    {% endif %}
+  </li>
+  <li class="list-group-item"><strong>Zadnji put viđen:</strong> {{ dev.last_seen }}</li>
+</ul>
+
+<div class="mt-3">
+  <a href="/devices/{{ dev.id }}/edit" class="btn btn-warning">Uredi</a>
+
+  <form method="post" action="/devices/{{ dev.id }}/delete" class="d-inline">
+    <button class="btn btn-danger">Obriši</button>
+  </form>
+</div>
+
+{% endblock %}

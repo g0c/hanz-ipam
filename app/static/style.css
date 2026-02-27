@@ -1,0 +1,189 @@
+/* ===========================================================
+   ENTERPRISE IPAM UI THEME (Bootstrap 5 Compatible)
+   Author: Goran + IPAM AI Assistant
+   =========================================================== */
+
+/* GLOBAL -------------------------------------------------- */
+
+body {
+    background: #f4f6f9;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #333;
+}
+
+.navbar {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #222;
+}
+
+.container {
+    max-width: 1400px;
+}
+
+/* TABLES -------------------------------------------------- */
+
+table.dataTable {
+    border-radius: 8px !important;
+    overflow: hidden;
+    background: white;
+}
+
+table.dataTable thead th {
+    background: #2c3e50;
+    color: #fff;
+    font-weight: 600;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+}
+
+table.dataTable tbody tr {
+    transition: background 0.2s ease-in-out;
+}
+
+table.dataTable tbody tr:hover {
+    background: #f0f7ff !important;
+}
+
+.table-danger {
+    background: #ffe7e7 !important;
+}
+
+.table-warning {
+    background: #fff5da !important;
+}
+
+.table-secondary {
+    background: #efefef !important;
+}
+
+/* DataTables: Pagination, search, buttons ------------------ */
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 4px 12px;
+    margin: 2px;
+    border-radius: 4px;
+    border: 1px solid #2c3e50 !important;
+    background: #2c3e50 !important;
+    color: #fff !important;
+    font-weight: 500;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: #1a252f !important;
+    border: 1px solid #1a252f !important;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    border: 1px solid #bbb !important;
+    border-radius: 6px !important;
+    padding: 6px;
+}
+
+.dataTables_wrapper .dataTables_length select {
+    border-radius: 6px;
+    padding: 3px;
+}
+
+/* BUTTONS: CSV, Excel, PDF, Print, ColVis ------------------ */
+
+.dt-buttons .btn {
+    margin-right: 6px;
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+}
+
+.dt-button-collection .dt-button {
+    border-radius: 6px !important;
+    margin: 4px 6px !important;
+}
+
+/* BADGES (STATUS) ------------------------------------------ */
+
+.badge {
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+.badge.bg-success {
+    background: #27ae60 !important;
+}
+
+.badge.bg-danger {
+    background: #c0392b !important;
+}
+
+.badge.bg-warning {
+    background: #f39c12 !important;
+    color: #000 !important;
+}
+
+.badge.bg-secondary {
+    background: #7f8c8d !important;
+}
+
+/* CARDS, PANELS -------------------------------------------- */
+
+.card {
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.card-header {
+    background: #2c3e50;
+    color: white;
+    border-bottom: 1px solid #1a252f;
+}
+
+/* FORMS ---------------------------------------------------- */
+
+form .form-control, 
+form .form-select {
+    border-radius: 6px !important;
+    padding: 8px 10px !important;
+    border: 1px solid #bbb !important;
+}
+
+form .btn-primary {
+    background: #2c3e50 !important;
+    border-color: #2c3e50 !important;
+}
+
+form .btn-primary:hover {
+    background: #1a252f !important;
+}
+
+/* FLASH ALERTS --------------------------------------------- */
+
+.alert {
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+/* RESPONSIVE ------------------------------------------------*/
+
+@media (max-width: 768px) {
+    .container {
+        padding: 0 8px;
+    }
+    .dt-buttons {
+        margin-bottom: 10px;
+        display: flex;
+        flex-wrap: wrap;
+    }
+}
+
+/* CUSTOM SCROLLBAR ------------------------------------------ */
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-thumb {
+    background: #aaa;
+    border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #888;
+}
+
+/* END ------------------------------------------------------- */

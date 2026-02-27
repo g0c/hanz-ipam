@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3>Dodaj uređaj</h3>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">Hostname</label>
+    <input class="form-control" name="hostname" required>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">IP adresa</label>
+    <input class="form-control" name="ip_addr" required>
+  </div>
+
+  <button class="btn btn-primary">Spremi</button>
+</form>
+
+{% endblock %}
