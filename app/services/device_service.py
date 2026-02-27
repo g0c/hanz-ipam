@@ -1,66 +1,58 @@
+# v1.0.1
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-from app.core.models import Device
-from datetime import datetime
-from app.services.validate import validate_ip
+from app.core.models import Device, DeviceStatus
+import ipaddress
 
+# Dohvaća sve uređaje iz baze za prikaz u tablici
 def get_all_devices(db: Session):
-    return db.query(Device).order_by(Device.id).all()
+    return db.query(Device).all()
 
-def get_devices_page(db: Session, page: int = 1, per_page: int = 25):
-    offset = (page - 1) * per_page
-    devices = db.query(Device).order_by(Device.id).offset(offset).limit(per_page).all()
-
-    next_page_exists = len(devices) == per_page
-
-    return devices, next_page_exists
-
+# Dohvaća jedan uređaj prema njegovom ID-u
 def get_device(db: Session, device_id: int):
     return db.query(Device).filter(Device.id == device_id).first()
 
-def create_device(db: Session, hostname: str, ip_addr: str, status: str = "unknown"):
-    hostname = hostname.strip()
-    ip_addr = validate_ip(ip_addr)
+# Kreira novi uređaj u bazi podataka sa svim metapodacima
+def create_device(db: Session, hostname: str, ip_addr: str, status: str, 
+                  mac: str = None, location: str = None, description: str = None):
+    # Validacija IP adrese prije unosa
+    try:
+        ipaddress.ip_address(ip_addr)
+    except ValueError:
+        raise ValueError("Neispravan format IP adrese.")
 
-    dev = Device(
+    db_device = Device(
         hostname=hostname,
         ip_addr=ip_addr,
-        status=status,
-        last_seen=None
+        status=DeviceStatus(status),
+        mac=mac,
+        location=location,
+        description=description
     )
-    db.add(dev)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise IntegrityError("duplicate", None, None)
-    db.refresh(dev)
-    return dev
-
-def update_device(db: Session, device_id: int, hostname: str, ip_addr: str, status: str):
-    dev = get_device(db, device_id)
-    if not dev:
-        return None
-
-    hostname = hostname.strip()
-    ip_addr = validate_ip(ip_addr)
-
-    dev.hostname = hostname
-    dev.ip_addr = ip_addr
-    dev.status = status
-
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise IntegrityError("duplicate", None, None)
-
-    return dev
-
-def delete_device(db: Session, device_id: int):
-    dev = get_device(db, device_id)
-    if not dev:
-        return False
-    db.delete(dev)
+    db.add(db_device)
     db.commit()
-    return True
+    db.refresh(db_device)
+    return db_device
+
+# Ažurira postojeći uređaj u bazi
+def update_device(db: Session, device_id: int, hostname: str, ip_addr: str, status: str,
+                  mac: str = None, location: str = None, description: str = None):
+    db_device = get_device(db, device_id)
+    if db_device:
+        db_device.hostname = hostname
+        db_device.ip_addr = ip_addr
+        db_device.status = DeviceStatus(status)
+        db_device.mac = mac
+        db_device.location = location
+        db_device.description = description
+        db.commit()
+        db.refresh(db_device)
+    return db_device
+
+# Briše uređaj iz baze podataka
+def delete_device(db: Session, device_id: int):
+    db_device = get_device(db, device_id)
+    if db_device:
+        db.delete(db_device)
+        db.commit()
+        return True
+    return False
