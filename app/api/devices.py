@@ -60,3 +60,33 @@ def delete_device(device_id: int, db: Session = Depends(get_db), user=Depends(ge
     device_service.delete_device(db, device_id)
     resp = RedirectResponse(url="/devices", status_code=303)
     return flash(resp, "Uredaj obrisan.")
+
+# v1.0.3
+@router.get("/{device_id}/edit")
+def edit_device_form(device_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    dev = device_service.get_device(db, device_id)
+    if not dev:
+        raise HTTPException(404, detail="Uređaj nije pronađen")
+    return templates.TemplateResponse("devices_edit.html", {"request": request, "dev": dev})
+
+@router.post("/{device_id}/edit")
+def update_device(
+    device_id: int,
+    request: Request,
+    hostname: str = Form(...),
+    ip_addr: str = Form(...),
+    status: str = Form(...),
+    mac: str = Form(None),
+    location: str = Form(None),
+    description: str = Form(None),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    try:
+        device_service.update_device(db, device_id, hostname, ip_addr, status, mac, location, description)
+    except Exception as e:
+        dev = device_service.get_device(db, device_id)
+        return templates.TemplateResponse("devices_edit.html", {"request": request, "dev": dev, "error": str(e)})
+
+    resp = RedirectResponse(url=f"/devices/{device_id}", status_code=303)
+    return flash(resp, "Promjene su uspješno spremljene!")

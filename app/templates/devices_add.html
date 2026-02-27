@@ -1,24 +1,105 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h3>Dodaj uređaj</h3>
+<div class="row justify-content-center mt-5">
+  <div class="col-md-6">
+    <div class="card shadow">
+      <div class="card-header bg-dark text-white">
+        <h4 class="mb-0">Dodaj novi uređaj</h4>
+      </div>
+      <div class="card-body">
+        
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
 
-{% if error %}
-<div class="alert alert-danger">{{ error }}</div>
-{% endif %}
+        <form method="post" id="addDeviceForm" novalidate>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Hostname</label>
+            <input type="text" class="form-control" name="hostname" placeholder="npr. GOC-SRV-01" required>
+            <div class="form-text">Unesite mrežni naziv uređaja.</div>
+          </div>
 
-<form method="post">
-  <div class="mb-3">
-    <label class="form-label">Hostname</label>
-    <input class="form-control" name="hostname" required>
+          <div class="mb-3">
+            <label class="form-label fw-bold">IP adresa</label>
+            <input type="text" class="form-control" id="ipInput" name="ip_addr" placeholder="npr. 192.168.1.10" required>
+            <div id="ipFeedback" class="invalid-feedback">
+              Molimo unesite ispravnu IPv4 ili IPv6 adresu.
+            </div>
+            <div class="valid-feedback">
+              IP adresa je ispravnog formata.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Status</label>
+            <select class="form-select" name="status">
+              <option value="active" selected>Active</option>
+              <option value="reserved">Reserved</option>
+              <option value="offline">Offline</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </div>
+
+          <hr>
+
+          <div class="d-flex justify-content-between">
+            <a href="/devices" class="btn btn-outline-secondary">Natrag</a>
+            <button type="submit" id="submitBtn" class="btn btn-primary px-4">Spremi uređaj</button>
+          </div>
+        </form>
+
+      </div>
+    </div>
   </div>
+</div>
 
-  <div class="mb-3">
-    <label class="form-label">IP adresa</label>
-    <input class="form-control" name="ip_addr" required>
-  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ipaddr.js/2.1.0/ipaddr.min.js"></script>
 
-  <button class="btn btn-primary">Spremi</button>
-</form>
+<script>
+$(document).ready(function() {
+    const $ipInput = $('#ipInput');
+    const $submitBtn = $('#submitBtn');
+
+    // Funkcija koja provjerava ispravnost IP adrese dok korisnik tipka
+    $ipInput.on('input', function() {
+        const value = $(this).val().trim();
+        
+        if (value === "") {
+            $(this).removeClass('is-valid is-invalid');
+            return;
+        }
+
+        try {
+            if (ipaddr.isValid(value)) {
+                // Ako je IP ispravan, dodaj zeleni sjaj
+                $(this).addClass('is-valid').removeClass('is-invalid');
+                $submitBtn.prop('disabled', false);
+            } else {
+                // Ako nije ispravan, dodaj crveni sjaj
+                $(this).addClass('is-invalid').removeClass('is-valid');
+                $submitBtn.prop('disabled', true);
+            }
+        } catch (e) {
+            $(this).addClass('is-invalid').removeClass('is-valid');
+            $submitBtn.prop('disabled', true);
+        }
+    });
+
+    // Spriječavamo slanje forme ako IP nije ispravan (dodatna zaštita)
+    $('#addDeviceForm').on('submit', function(e) {
+        const value = $ipInput.val().trim();
+        if (!ipaddr.isValid(value)) {
+            e.preventDefault();
+            $ipInput.addClass('is-invalid');
+        }
+    });
+});
+</script>
+
+<style>
+  .is-valid { border-color: #198754 !important; box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25) !important; }
+  .is-invalid { border-color: #dc3545 !important; box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important; }
+</style>
 
 {% endblock %}

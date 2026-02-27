@@ -1,34 +1,83 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h3>Uredi uređaj #{{ dev.id }}</h3>
+<div class="row justify-content-center mt-4">
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">Uredi uređaj: {{ dev.hostname or dev.ip_addr }}</h4>
+      </div>
+      <div class="card-body p-4">
+        
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
 
-{% if error %}
-<div class="alert alert-danger">{{ error }}</div>
-{% endif %}
+        <form method="post" id="editDeviceForm">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Hostname</label>
+              <input type="text" class="form-control" name="hostname" value="{{ dev.hostname or '' }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">IP adresa</label>
+              <input type="text" class="form-control" id="ipInput" name="ip_addr" value="{{ dev.ip_addr }}" required>
+            </div>
+          </div>
 
-<form method="post">
-  <div class="mb-3">
-    <label class="form-label">Hostname</label>
-    <input class="form-control" name="hostname" value="{{ dev.hostname }}">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">MAC adresa</label>
+              <input type="text" class="form-control" name="mac" value="{{ dev.mac or '' }}">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-bold">Lokacija</label>
+              <input type="text" class="form-control" name="location" value="{{ dev.location or '' }}">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Status</label>
+            <select class="form-select" name="status">
+              <option value="active" {% if dev.status.value == 'active' %}selected{% endif %}>Active</option>
+              <option value="reserved" {% if dev.status.value == 'reserved' %}selected{% endif %}>Reserved</option>
+              <option value="offline" {% if dev.status.value == 'offline' %}selected{% endif %}>Offline</option>
+              <option value="unknown" {% if dev.status.value == 'unknown' %}selected{% endif %}>Unknown</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Komentar / Opis</label>
+            <textarea class="form-control" name="description" rows="3">{{ dev.description or '' }}</textarea>
+          </div>
+
+          <hr>
+          <div class="d-flex justify-content-between">
+            <a href="/devices/{{ dev.id }}" class="btn btn-outline-secondary">Odustani</a>
+            <button type="submit" id="submitBtn" class="btn btn-success px-5">Spremi izmjene</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
+</div>
 
-  <div class="mb-3">
-    <label class="form-label">IP</label>
-    <input class="form-control" name="ip_addr" value="{{ dev.ip_addr }}">
-  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ipaddr.js/2.1.0/ipaddr.min.js"></script>
+<script>
+$(document).ready(function() {
+    const $ipInput = $('#ipInput');
+    const $submitBtn = $('#submitBtn');
 
-  <div class="mb-3">
-    <label class="form-label">Status</label>
-    <select class="form-select" name="status">
-      <option value="active" {% if dev.status=='active' %}selected{% endif %}>active</option>
-      <option value="offline" {% if dev.status=='offline' %}selected{% endif %}>offline</option>
-      <option value="reserved" {% if dev.status=='reserved' %}selected{% endif %}>reserved</option>
-      <option value="unknown" {% if dev.status=='unknown' %}selected{% endif %}>unknown</option>
-    </select>
-  </div>
-
-  <button class="btn btn-primary">Spremi</button>
-</form>
-
+    $ipInput.on('input', function() {
+        const val = $(this).val().trim();
+        if (ipaddr.isValid(val)) {
+            $(this).addClass('is-valid').removeClass('is-invalid');
+            $submitBtn.prop('disabled', false);
+        } else {
+            $(this).addClass('is-invalid').removeClass('is-valid');
+            $submitBtn.prop('disabled', true);
+        }
+    });
+});
+</script>
 {% endblock %}

@@ -10,12 +10,10 @@
   <a class="btn btn-primary" href="/devices/add">Dodaj uređaj</a>
 </div>
 
-<!-- Global quick search (naš input) -->
 <div class="mb-3">
-  <input id="globalSearch" type="text" class="form-control" placeholder="Quick search (sve kolone)">
+  <input id="globalSearch" type="text" class="form-control" placeholder="Brza pretraga (sve kolone)">
 </div>
 
-<!-- DataTables CSS (Bootstrap 5) + Buttons + Responsive -->
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
@@ -40,11 +38,11 @@
       <td>{{ d.hostname or '-' }}</td>
       <td>{{ d.ip_addr }}</td>
       <td>
-        {% if d.status == 'active' %}
+        {% if d.status.value == 'active' %}
           <span class="badge bg-success">active</span>
-        {% elif d.status == 'offline' %}
+        {% elif d.status.value == 'offline' %}
           <span class="badge bg-danger">offline</span>
-        {% elif d.status == 'reserved' %}
+        {% elif d.status.value == 'reserved' %}
           <span class="badge bg-warning text-dark">reserved</span>
         {% else %}
           <span class="badge bg-secondary">unknown</span>
@@ -59,11 +57,8 @@
   </tbody>
 </table>
 
-<!-- DataTables & Extensions JS (CDN) -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-
-<!-- Buttons (CSV, Excel, PDF, Print, ColVis) -->
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -72,28 +67,30 @@
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
-
-<!-- Responsive -->
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
-
-<!-- Moment.js + DataTables moment plugin za sorting datuma -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
 <script src="https://cdn.datatables.net/plug-ins/1.13.6/sorting/datetime-moment.js"></script>
-
-<!-- ipaddr.js za IPv4/IPv6 parsing -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ipaddr.js/2.1.0/ipaddr.min.js"></script>
 
 <script>
 $(document).ready(function () {
-    // Registriraj moment format (naš prikaz datuma)
+    // Registracija formata datuma
     $.fn.dataTable.moment('YYYY-MM-DD HH:mm:ss');
 
-    // --- Custom DETECT & ORDER za IP adrese (IPv4/IPv6) ---
+    // Resetiranje defaultnih DataTables klasa za gumbe kako ne bi bilo konflikta s Bootstrapom
+    $.extend(true, $.fn.dataTable.Buttons.defaults, {
+        dom: {
+            button: {
+                className: 'btn btn-outline-secondary'
+            }
+        }
+    });
+
+    // Custom detekcija i sortiranje za IP adrese
     $.fn.dataTable.ext.type.detect.push(function (data) {
         if (!data) return null;
         var txt = $('<div>').html(data).text().trim();
-        if (!txt) return null;
         try { if (ipaddr.isValid(txt)) return 'ipaddr'; } catch(e) {}
         return null;
     });
@@ -103,73 +100,44 @@ $(document).ready(function () {
         var txt = $('<div>').html(data).text().trim();
         try {
             var addr = ipaddr.parse(txt);
-            var bytes = addr.toByteArray();               // v4 -> 4b, v6 -> 16b
-            if (bytes.length === 4) {
-                // normaliziraj v4 na v6-dužinu zbog leksičkog uspoređivanja
-                bytes = Array(12).fill(0).concat(bytes);
-            }
+            var bytes = addr.toByteArray();
+            if (bytes.length === 4) bytes = Array(12).fill(0).concat(bytes);
             return bytes.map(b => ('0' + b.toString(16)).slice(-2)).join('');
-        } catch (e) {
-            return txt;
-        }
+        } catch (e) { return txt; }
     };
 
-    // --- Custom DETECT & ORDER za STATUS s prioritetom ---
-    const statusRank = { 'active': 0, 'reserved': 1, 'offline': 2, 'unknown': 3 };
-    $.fn.dataTable.ext.type.detect.push(function (data) {
-        if (!data) return null;
-        var t = $('<div>').html(data).text().trim().toLowerCase();
-        if (['active','reserved','offline','unknown'].includes(t)) return 'devstatus';
-        return null;
-    });
-    $.fn.dataTable.ext.type.order['devstatus-pre'] = function (data) {
-        if (!data) return 999;
-        var t = $('<div>').html(data).text().trim().toLowerCase();
-        return (t in statusRank) ? statusRank[t] : 999;
-    };
-
-    // Inicijalizacija DataTable
+    // Inicijalizacija tablice
     var table = $('#devicesTable').DataTable({
-        // Bez defaultnog ugrađenog search boxa – imamo vlastiti
         dom: 'Brtip',
         pageLength: 25,
         responsive: true,
-        order: [], // bez početnog sortiranja
+        order: [],
         language: {
-            search: "Pretraga:",
-            lengthMenu: "Prikazi _MENU_ zapisa",
-            info: "Stranica _PAGE_ od _PAGES_",
-            paginate: { previous: "Prethodna", next: "Sljedeca" },
-            emptyTable: "Nema podataka"
+            url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/hr.json" // Učitavanje prijevoda
         },
         buttons: [
-            { extend: 'csv', className: 'btn btn-outline-secondary', text: 'CSV' },
-            { extend: 'excel', className: 'btn btn-outline-secondary', text: 'Excel' },
-            { extend: 'pdf', className: 'btn btn-outline-secondary', text: 'PDF' },
-            { extend: 'print', className: 'btn btn-outline-secondary', text: 'Print' },
-            { extend: 'colvis', className: 'btn btn-outline-secondary', text: 'Kolone' }
+            { extend: 'csv', text: 'CSV' },
+            { extend: 'excel', text: 'Excel' },
+            { extend: 'pdf', text: 'PDF' },
+            { extend: 'print', text: 'Ispiši' },
+            { extend: 'colvis', text: 'Kolone' }
         ],
         columnDefs: [
-            // Kolone: 0:#, 1:ID, 2:Hostname, 3:IP, 4:Status, 5:LastSeen, 6:Akcije
-            { targets: 3, type: 'ipaddr' },      // IP sortiranje
-            { targets: 4, type: 'devstatus' },   // Status custom sort
-            { targets: 6, orderable: false },    // Akcije ne sortiramo
+            { targets: 3, type: 'ipaddr' },
+            { targets: 6, orderable: false }
         ],
         createdRow: function (row, data) {
-            // Highlight redaka prema statusu (kolona 4)
-            var $statusCell = $('td:eq(4)', row);
-            var s = $statusCell.text().trim().toLowerCase();
-            if (s === 'offline')   $(row).addClass('table-danger');
-            if (s === 'unknown')   $(row).addClass('table-secondary');
-            if (s === 'reserved')  $(row).addClass('table-warning');
+            var s = $('td:eq(4)', row).text().trim().toLowerCase();
+            if (s === 'offline') $(row).addClass('table-danger');
+            if (s === 'unknown') $(row).addClass('table-secondary');
+            if (s === 'reserved') $(row).addClass('table-warning');
         }
     });
 
-    // Naš globalni quick search input
+    // Povezivanje našeg globalnog pretraživanja s tablicom
     $('#globalSearch').on('keyup change', function () {
         table.search(this.value).draw();
     });
 });
 </script>
-
 {% endblock %}
