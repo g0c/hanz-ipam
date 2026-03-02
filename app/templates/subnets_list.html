@@ -2,20 +2,27 @@
 {% block content %}
 
 <div class="d-flex align-items-center justify-content-between mb-4">
-    <h3 class="mb-0"><i class="bi bi-layers-half me-2"></i>Mrežni segmenti (Subnets)</h3>
+    <h3 class="mb-0"><i class="bi bi-layers-half me-2 text-primary"></i>Podmreže</h3>
     <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addSubnetModal">
-        <i class="bi bi-plus-lg"></i> Novi Subnet
+        <i class="bi bi-plus-lg"></i> Dodaj novu podmrežu
     </button>
 </div>
+
+{% if error %}
+<div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zatvori"></button>
+</div>
+{% endif %}
 
 <div class="table-responsive">
     <table id="subnetsTable" class="table table-hover align-middle bg-white shadow-sm" style="width:100%">
         <thead>
             <tr>
                 <th>VLAN</th>
-                <th>Naziv / Opis</th>
+                <th>Ime / Opis</th>
                 <th>CIDR</th>
-                <th style="width: 30%;">Iskorištenost (Kapacitet)</th>
+                <th style="width: 25%;">Iskorištenje (Kapacitet)</th>
                 <th>Statistika</th>
                 <th>Akcije</th>
             </tr>
@@ -25,34 +32,38 @@
             <tr>
                 <td><span class="badge bg-dark">ID: {{ s.obj.vlan_id or 'N/A' }}</span></td>
                 <td>
-                    <strong>{{ s.obj.name or 'Bez naziva' }}</strong><br>
+                    <strong class="text-dark">{{ s.obj.name or 'Bez naziva' }}</strong><br>
                     <small class="text-muted">{{ s.obj.description or '-' }}</small>
                 </td>
                 <td><code class="fw-bold text-primary" style="font-size: 1.1rem;">{{ s.obj.cidr }}</code></td>
                 <td>
                     {% set pct = s.usage_pct %}
-                    <div class="progress" style="height: 20px; border-radius: 10px;">
+                    <div class="progress" style="height: 12px; border-radius: 6px;">
                         <div class="progress-bar {% if pct < 70 %}bg-success{% elif pct < 90 %}bg-warning{% else %}bg-danger{% endif %}" 
-                             role="progressbar" 
-                             style="width: {{ pct }}%;" 
-                             aria-valuenow="{{ pct }}" 
-                             aria-valuemin="0" 
-                             aria-valuemax="100">
-                             {% if pct > 10 %}{{ pct }}%{% endif %}
+                             role="progressbar" style="width: {{ pct }}%;">
                         </div>
                     </div>
+                    <small class="text-muted">{{ pct }}% Iskorišteno</small>
                 </td>
                 <td>
-                    <span class="badge bg-secondary">{{ s.used }} / {{ s.total }} IP</span>
-                    <small class="text-muted ms-1">({{ s.free }} slobodno)</small>
+                    <span class="badge bg-light text-dark border">{{ s.used }} / {{ s.total }} IP</span>
                 </td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <a class="btn btn-outline-primary" href="/subnets/{{ s.obj.id }}" title="IP Mapa">
-                            <i class="bi bi-grid-3x3-gap"></i> Mapa
+                        <a class="btn btn-outline-primary" href="/subnets/{{ s.obj.id }}" title="Mapa IP-a">
+                            <i class="bi bi-grid-3x3-gap"></i> Mapa IP-a
                         </a>
-                        <button class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></button>
+                        <a class="btn btn-outline-secondary" href="/subnets/{{ s.obj.id }}/edit" title="Uredi podmrežu">
+                            <i class="bi bi-pencil"></i> Uredi
+                        </a>
                     </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="text-center py-5 text-muted">
+                    <i class="bi bi-info-circle fs-2 d-block mb-2"></i>
+                    Podmreže nisu pronađene. Kliknite "Dodaj novu podmrežu" da biste stvorili svoj prvi mrežni segment.
                 </td>
             </tr>
             {% endfor %}
@@ -60,36 +71,35 @@
     </table>
 </div>
 
-<div class="modal fade" id="addSubnetModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="addSubnetModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content border-0 shadow">
             <form action="/subnets/add" method="post">
                 <div class="modal-header bg-dark text-white">
                     <h5 class="modal-title">Dodaj mrežni segment</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Naziv mreže</label>
-                        <input type="text" class="form-control" name="name" placeholder="npr. Server LAN" required>
+                        <label class="form-label fw-bold">Ime mreže</label>
+                        <input type="text" class="form-control" name="name" placeholder="npr. Upravljanje serverima" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">CIDR Notacija</label>
-                        <input type="text" class="form-control font-monospace" name="cidr" placeholder="192.168.10.0/24" required>
-                        <div class="form-text">Uvijek koristi format mreža/prefix.</div>
+                        <input type="text" class="form-control font-monospace" name="cidr" placeholder="192.168.1.0/24" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">VLAN ID</label>
-                        <input type="number" class="form-control" name="vlan_id" placeholder="100">
+                        <input type="number" class="form-control" name="vlan_id" placeholder="10">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">Opis</label>
                         <textarea class="form-control" name="description" rows="2"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Odustani</button>
-                    <button type="submit" class="btn btn-primary px-4">Spremi mrežu</button>
+                    <button type="submit" class="btn btn-primary px-4">Spremi podmrežu</button>
                 </div>
             </form>
         </div>
@@ -100,10 +110,8 @@
 $(document).ready(function() {
     $('#subnetsTable').DataTable({
         dom: 'rtp',
-        pageLength: 20,
         language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/hr.json" }
     });
 });
 </script>
-
 {% endblock %}
