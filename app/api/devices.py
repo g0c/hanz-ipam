@@ -1,6 +1,6 @@
-# v1.1.2
+# v1.1.20
 # Ruter za upravljanje mrežnim uređajima - IPAM modul.
-# Sadrži logiku za sprečavanje dupliciranja IP adresa i rješavanje PendingRollbackError-a.
+# Dodana podrška za dohvaćanje detalja putem IP adrese za interaktivnu mapu.
 
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import RedirectResponse
@@ -14,6 +14,27 @@ from app.core.ui import templates
 from app.core.models import Device
 
 router = APIRouter(tags=["devices"])
+
+# --- DOHVAĆANJE DETALJA PREKO IP ADRESE (Za Modal na IP Mapi) ---
+# Ova ruta omogućuje interaktivnoj mapi da povuče podatke čim klikneš na kockicu.
+@router.get("/details/{ip_addr}")
+def get_device_details_by_ip(ip_addr: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    # Traženje uređaja u bazi prema IP adresi
+    device = db.query(Device).filter(Device.ip_addr == ip_addr).first()
+    
+    if not device:
+        # Ako uređaj ne postoji u bazi, vraćamo 404 što JS hvata i prikazuje "Free IP"
+        raise HTTPException(status_code=404, detail="Uređaj nije pronađen")
+    
+    # Vraćanje JSON podataka koje JavaScript očekuje za popunjavanje modala
+    return {
+        "id": device.id,
+        "ip": device.ip_addr,
+        "hostname": device.hostname,
+        "status": device.status.value if hasattr(device.status, 'value') else str(device.status),
+        "mac_address": device.mac_address,
+        "last_seen": device.last_seen.strftime("%Y-%m-%d %H:%M:%S") if device.last_seen else "Never"
+    }
 
 # --- LISTA UREĐAJA ---
 @router.get("/")
@@ -35,7 +56,7 @@ def add_device_form(
     db: Session = Depends(get_db), 
     user=Depends(get_current_user)
 ):
-    # Forma za dodavanje - prima prefilled podatke iz IP mape (subnets_view)
+    # Forma za dodavanje - prima prefilled podatke iz IP mape
     subnets = db.query(subnet_service.Subnet).all()
     return templates.TemplateResponse("devices_add.html", {
         "request": request,
@@ -61,10 +82,9 @@ def add_device(
     user=Depends(get_current_user)
 ):
     try:
-        # 1. Provjera postoji li već uređaj s ovom IP adresom (IPAM Paradox Fix)
+        # 1. Provjera postoji li već uređaj s ovom IP adresom
         existing = db.query(Device).filter(Device.ip_addr == ip_addr).first()
         if existing:
-            # Ako postoji, nemoj raditi INSERT, nego preusmjeri korisnika na EDIT postojećeg
             resp = RedirectResponse(url=f"/devices/{existing.id}/edit", status_code=303)
             return flash(resp, f"Uređaj s IP adresom {ip_addr} već postoji u bazi! Preusmjereni ste na uređivanje.")
 
@@ -87,7 +107,6 @@ def add_device(
         return flash(resp, "Uređaj je uspješno dodan u IPAM bazu!")
 
     except Exception as e:
-        # OBAVEZNO: Rollback sesije u slučaju bilo kakve greške (sprečava PendingRollbackError)
         db.rollback()
         subnets = db.query(subnet_service.Subnet).all()
         return templates.TemplateResponse("devices_add.html", {
@@ -97,7 +116,7 @@ def add_device(
             "subnets": subnets
         })
 
-# --- PREGLED DETALJA ---
+# --- PREGLED DETALJA (Po ID-u) ---
 @router.get("/{device_id}")
 def view_device(device_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     dev = device_service.get_device(db, device_id)
@@ -141,7 +160,6 @@ def update_device(
     user=Depends(get_current_user)
 ):
     try:
-        # Ažuriranje postojećeg zapisa s auditom
         device_service.update_device(
             db, 
             device_id=device_id, 
@@ -159,7 +177,6 @@ def update_device(
         resp = RedirectResponse(url=f"/devices/{device_id}", status_code=303)
         return flash(resp, "Promjene su uspješno spremljene!")
     except Exception as e:
-        # Ponovni rollback za sigurnost sesije
         db.rollback()
         dev = device_service.get_device(db, device_id)
         subnets = db.query(subnet_service.Subnet).all()
@@ -185,7 +202,6 @@ def delete_device(device_id: int, db: Session = Depends(get_db), user=Depends(ge
 # --- LIVE PING ---
 @router.post("/{device_id}/ping")
 def run_ping(device_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # Pokreće ICMP ping i vraća JSON za AJAX ažuriranje u frontendu
     result = device_service.ping_device(db, device_id)
     if not result:
         raise HTTPException(status_code=404, detail="Uređaj nije pronađen")

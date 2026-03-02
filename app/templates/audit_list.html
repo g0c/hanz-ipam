@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row mb-4 align-items-center">
+    <div class="col">
+        <h2 class="fw-bold text-dark"><i class="bi bi-journal-text me-2 text-primary"></i>Audit Log</h2>
+        <p class="text-muted">Povijest svih promjena, mrežnih otkrića i korisničkih akcija.</p>
+    </div>
+    <div class="col-auto">
+        <button onclick="window.location.reload()" class="btn btn-outline-secondary shadow-sm">
+            <i class="bi bi-arrow-clockwise me-1"></i> Osvježi
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle w-100" id="auditTable">
+                <thead class="table-light text-uppercase small fw-bold">
+                    <tr>
+                        <th class="ps-3">Vrijeme</th>
+                        <th>Korisnik / Izvor</th>
+                        <th>Akcija</th>
+                        <th>Tip Objekta</th>
+                        <th>ID</th>
+                        <th>Detalji Promjene</th>
+                        <th class="text-end pe-3">Izvorni IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ps-3 small fw-bold text-muted">
+                            {{ log.timestamp.strftime("%d.%m.%Y %H:%M:%S") }}
+                        </td>
+                        <td>
+                            <span class="badge {% if log.username == 'Discovery Engine' %}bg-dark-subtle text-dark border{% else %}bg-primary-subtle text-primary border{% endif %} px-2">
+                                <i class="bi {% if log.username == 'Discovery Engine' %}bi-robot{% else %}bi-person-fill{% endif %} me-1"></i>
+                                {{ log.username }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if log.action == 'DISCOVERY' %}
+                                <span class="badge bg-info text-dark fw-bold"><i class="bi bi-radar me-1"></i> DISCOVERY</span>
+                            {% elif log.action == 'CREATE' %}
+                                <span class="badge bg-success fw-bold">CREATE</span>
+                            {% elif log.action == 'UPDATE' %}
+                                <span class="badge bg-primary fw-bold">UPDATE</span>
+                            {% elif log.action == 'DELETE' %}
+                                <span class="badge bg-danger fw-bold">DELETE</span>
+                            {% elif log.action == 'STATUS_CHANGE' %}
+                                <span class="badge bg-warning text-dark fw-bold">STATUS</span>
+                            {% else %}
+                                <span class="badge bg-secondary fw-bold">{{ log.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td><small class="text-muted fw-bold">{{ log.target_type }}</small></td>
+                        <td><code class="text-dark">{{ log.target_id or '-' }}</code></td>
+                        <td>
+                            <div class="small" style="max-width: 400px; white-space: normal;">
+                                {{ log.details or 'Bez detalja' }}
+                            </div>
+                        </td>
+                        <td class="text-end pe-3 font-monospace small">
+                            {{ log.source_ip or 'n/a' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+
+
+<script>
+$(document).ready(function() {
+    $('#auditTable').DataTable({
+        "order": [[ 0, "desc" ]], // Najnoviji logovi prvi
+        "pageLength": 50,
+        "language": {
+            "search": "_INPUT_",
+            "searchPlaceholder": "Pretraži logove...",
+            "info": "Prikazano _START_ do _END_ od ukupno _TOTAL_ događaja",
+            "paginate": { "next": "→", "previous": "←" }
+        },
+        "dom": '<"d-flex justify-content-between mb-3"f>rt<"d-flex justify-content-between mt-3"ip>'
+    });
+    
+    // Stil za search input
+    $('.dataTables_filter input').addClass('form-control shadow-sm border-primary-subtle');
+});
+</script>
+
+{% endblock %}

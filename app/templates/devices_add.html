@@ -2,111 +2,106 @@
 {% block content %}
 
 <div class="row justify-content-center mt-4">
-  <div class="col-md-10">
-    <div class="card shadow border-0">
-      <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-        <h4 class="mb-0"><i class="bi bi-cpu-fill me-2"></i>Registracija mrežnog resursa</h4>
-        <span class="badge bg-primary">v1.1.0</span>
-      </div>
-      <div class="card-body p-4">
-        
-        {% if error %}
-        <div class="alert alert-danger border-start border-4 shadow-sm">
-          <i class="bi bi-exclamation-octagon me-2"></i>{{ error }}
+    <div class="col-md-10">
+        <div class="card shadow border-0">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0"><i class="bi bi-plus-circle me-2 text-primary"></i>Dodaj novi uređaj</h4>
+            </div>
+            <div class="card-body p-4 bg-white">
+                
+                {% if error %}
+                <div class="alert alert-danger border-start border-4 shadow-sm">
+                    <i class="bi bi-exclamation-octagon me-2"></i>{{ error }}
+                </div>
+                {% endif %}
+
+                <form action="/devices/add" method="post" id="addDeviceForm" novalidate>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Hostname</label>
+                            <input type="text" class="form-control" name="hostname" 
+                                   placeholder="npr. srv-prod-01" required>
+                            <div class="invalid-feedback">Molimo unesite hostname.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">IP adresa</label>
+                            <input type="text" class="form-control font-monospace" id="ipInput" name="ip_addr" 
+                                   value="{{ prefilled_ip or '' }}" required>
+                            <div id="ipScream" class="form-text mt-1"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Mrežni segment (Subnet)</label>
+                            <select class="form-select" name="subnet_id">
+                                <option value="">-- Odaberi subnet --</option>
+                                {% for s in subnets %}
+                                <option value="{{ s.id }}" {% if prefilled_subnet == s.id %}selected{% endif %}>
+                                    {{ s.name or s.cidr }} ({{ s.cidr }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Tip uređaja</label>
+                            <select class="form-select" name="device_type">
+                                <option value="Server">Server</option>
+                                <option value="Firewall">Vatrozid (Firewall)</option>
+                                <option value="Switch">Mrežni preklopnik (Switch)</option>
+                                <option value="VM" selected>Virtualna mašina (VM)</option>
+                                <option value="Storage">Spremište (Storage)</option>
+                                <option value="Other">Ostalo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Okruženje</label>
+                            <select class="form-select" name="environment">
+                                <option value="PROD">Produkcija (PROD)</option>
+                                <option value="TEST">Testiranje (TEST)</option>
+                                <option value="DEV" selected>Razvoj (DEV)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Status</label>
+                            <select class="form-select" name="status">
+                                <option value="active" selected>Aktivan</option>
+                                <option value="reserved">Rezerviran</option>
+                                <option value="offline">Isključen</option>
+                                <option value="unknown">Nepoznat</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">MAC adresa</label>
+                            <input type="text" class="form-control font-monospace" name="mac" placeholder="00:00:00:00:00:00">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Lokacija</label>
+                            <input type="text" class="form-control" name="location" placeholder="npr. Podatkovni centar 1, Rack A3">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Komentar / Opis</label>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="/devices" class="btn btn-outline-secondary px-4">Odustani</a>
+                        <button type="submit" id="submitBtn" class="btn btn-success px-5 fw-bold shadow-sm">
+                            <i class="bi bi-save me-2"></i>Spremi uređaj
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
-        {% endif %}
-
-        <form method="post" id="addDeviceForm" novalidate>
-          
-          <div class="row mb-3">
-            <div class="col-md-4">
-              <label class="form-label fw-bold"><i class="bi bi-tag me-1"></i>Hostname</label>
-              <input type="text" class="form-control" name="hostname" placeholder="npr. srv-prod-01" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-bold"><i class="bi bi-broadcast me-1"></i>IP adresa</label>
-              <input type="text" class="form-control" id="ipInput" name="ip_addr" value="{{ prefilled_ip or '' }}" placeholder="10.x.x.x" required>
-              <div id="ipScream" class="form-text mt-1"></div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-bold"><i class="bi bi-layers-half me-1"></i>Mrežni segment (Subnet)</label>
-              <select class="form-select" name="subnet_id" id="subnetSelect">
-                <option value="">-- Odaberi subnet --</option>
-                {% for s in subnets %}
-                <option value="{{ s.id }}" {% if s.id == prefilled_subnet %}selected{% endif %}>
-                  {{ s.name or s.cidr }} ({{ s.cidr }})
-                </option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
-
-          <div class="row mb-3">
-            <div class="col-md-4">
-              <label class="form-label fw-bold"><i class="bi bi-router me-1"></i>Tip uređaja</label>
-              <select class="form-select" name="device_type">
-                <option value="Server">Server</option>
-                <option value="Firewall">Vatrozid (Firewall)</option>
-                <option value="Switch">Mrežni preklopnik (Switch)</option>
-                <option value="VM" selected>Virtualna mašina (VM)</option>
-                <option value="Storage">Spremište (Storage)</option>
-                <option value="Other">Ostalo</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-bold"><i class="bi bi-layers me-1"></i>Okruženje</label>
-              <select class="form-select" name="environment">
-                <option value="PROD" selected>Produkcija (PROD)</option>
-                <option value="TEST">Testiranje (TEST)</option>
-                <option value="DEV">Razvoj (DEV)</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-bold"><i class="bi bi-activity me-1"></i>Status</label>
-              <select class="form-select" name="status">
-                <option value="active" selected>Aktivan</option>
-                <option value="reserved">Rezerviran</option>
-                <option value="unknown">Nepoznat</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="row mb-3">
-            <div class="col-md-4">
-              <label class="form-label fw-bold"><i class="bi bi-fingerprint me-1"></i>MAC adresa</label>
-              <input type="text" class="form-control font-monospace" name="mac" placeholder="00:00:00:00:00:00">
-            </div>
-            <div class="col-md-8">
-              <label class="form-label fw-bold"><i class="bi bi-geo-alt me-1"></i>Lokacija</label>
-              <input type="text" class="form-control" name="location" placeholder="npr. Podatkovni centar 1, Ormar R02, Kat 2">
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <label class="form-label fw-bold"><i class="bi bi-chat-left-text me-1"></i>Komentar / Opis</label>
-            <textarea class="form-control" name="description" rows="3" placeholder="Dodatne napomene o uređaju..."></textarea>
-          </div>
-
-          <div class="alert alert-light border d-flex align-items-center mb-4 py-2">
-            <i class="bi bi-info-circle-fill text-primary me-2"></i>
-            <span class="small">Spremanjem će se automatski zabilježiti korisnik <strong>{{ user.username }}</strong> kao autor unosa.</span>
-          </div>
-
-          <hr>
-
-          <div class="d-flex justify-content-between align-items-center">
-            <button type="button" onclick="history.back()" class="btn btn-outline-secondary px-4">
-              <i class="bi bi-x-circle me-1"></i>Odustani
-            </button>
-            <button type="submit" id="submitBtn" class="btn btn-primary px-5 fw-bold shadow-sm">
-              <i class="bi bi-save me-2"></i>Spremi uređaj
-            </button>
-          </div>
-        </form>
-
-      </div>
     </div>
-  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ipaddr.js/2.1.0/ipaddr.min.js"></script>
@@ -114,37 +109,28 @@
 $(document).ready(function() {
     const $ipInput = $('#ipInput');
     const $ipScream = $('#ipScream');
+    const $submitBtn = $('#submitBtn');
 
-    function checkIpScream() {
+    function checkIp() {
         const val = $ipInput.val().trim();
         if (!val) {
-            $ipScream.empty();
             $ipInput.removeClass('is-valid is-invalid');
             return;
         }
 
-        if (!ipaddr.isValid(val)) {
-            $ipInput.removeClass('is-valid').addClass('is-invalid');
-            $ipScream.html('<span class="text-danger small fw-bold"><i class="bi bi-x-octagon"></i> Neispravan format IP adrese!</span>');
-            return;
-        }
-
-        const octet = val.split('.').pop();
-
-        if (octet === '1') {
-            $ipScream.html('<span class="text-warning fw-bold small"><i class="bi bi-exclamation-triangle"></i> Pažnja: Ovo je vjerojatno GATEWAY!</span>');
+        if (ipaddr.isValid(val)) {
             $ipInput.addClass('is-valid').removeClass('is-invalid');
-        } else if (octet === '0' || octet === '255') {
-            $ipScream.html('<span class="text-danger fw-bold small"><i class="bi bi-shield-lock"></i> REZERVIRANO: Mrežna ili Broadcast adresa!</span>');
-            $ipInput.addClass('is-invalid').removeClass('is-valid');
+            $ipScream.html('<span class="text-success small fw-bold">IP adresa je ispravna.</span>');
+            $submitBtn.prop('disabled', false);
         } else {
-            $ipScream.html('<span class="text-success small fw-bold"><i class="bi bi-check-circle"></i> IP adresa je sintaktički ispravna.</span>');
-            $ipInput.addClass('is-valid').removeClass('is-invalid');
+            $ipInput.addClass('is-invalid').removeClass('is-valid');
+            $ipScream.html('<span class="text-danger small fw-bold">Neispravan IP format!</span>');
+            $submitBtn.prop('disabled', true);
         }
     }
 
-    $ipInput.on('input', checkIpScream);
-    if($ipInput.val()) checkIpScream();
+    $ipInput.on('input', checkIp);
+    if($ipInput.val()) checkIp();
 });
 </script>
 {% endblock %}

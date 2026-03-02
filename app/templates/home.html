@@ -1,74 +1,133 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="row mb-4">
+<div class="row mb-4 align-items-center">
     <div class="col">
-        <h2 class="fw-bold text-dark"><i class="bi bi-speedometer2 me-2 text-primary"></i>Upravljačka ploča</h2>
-        <p class="text-muted">Pregled mrežne infrastrukture i resursa u realnom vremenu.</p>
+        <h2 class="fw-bold text-dark"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>IPAM Analytics</h2>
+        <p class="text-muted">Analiza mrežnih resursa i statusa infrastrukture.</p>
+    </div>
+    <div class="col-auto">
+        <div class="btn-group shadow-sm">
+            <a href="/devices/add" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Novi uređaj</a>
+            <button onclick="window.location.reload()" class="btn btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
     </div>
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-md-6 col-lg-4">
-        <div class="card border-0 shadow-sm border-start border-primary border-4 h-100">
-            <div class="card-body py-4 text-center position-relative">
-                <i class="bi bi-cpu fs-1 text-primary mb-2 d-block"></i>
-                <h6 class="text-uppercase fw-bold text-muted mb-1 small">Ukupno uređaja</h6>
-                <h2 class="mb-0 fw-bold">{{ device_count }}</h2>
-                <p class="text-muted small mb-0">Registrirani mrežni resursi</p>
-                <a href="/devices" class="stretched-link"></a>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm border-start border-primary border-4">
+            <div class="card-body py-3">
+                <small class="text-uppercase fw-bold text-muted small">Ukupno Hostova</small>
+                <h3 class="mb-0 fw-bold">{{ device_count }}</h3>
             </div>
         </div>
     </div>
-
-    <div class="col-md-6 col-lg-4">
-        <div class="card border-0 shadow-sm border-start border-success border-4 h-100">
-            <div class="card-body py-4 text-center position-relative">
-                <i class="bi bi-layers-half fs-1 text-success mb-2 d-block"></i>
-                <h6 class="text-uppercase fw-bold text-muted mb-1 small">Aktivne podmreže</h6>
-                <h2 class="mb-0 fw-bold">{{ subnet_count }}</h2>
-                <p class="text-muted small mb-0">Definirani mrežni segmenti</p>
-                <a href="/subnets" class="stretched-link"></a>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm border-start border-success border-4">
+            <div class="card-body py-3">
+                <small class="text-uppercase fw-bold text-muted small">Aktivnih Subneta</small>
+                <h3 class="mb-0 fw-bold">{{ subnet_count }}</h3>
             </div>
         </div>
     </div>
-
-    <div class="col-md-12 col-lg-4">
-        <div class="card bg-dark text-white border-0 shadow-sm h-100">
-            <div class="card-body d-flex flex-column justify-content-center py-4">
-                <h6 class="text-uppercase fw-bold text-white-50 mb-3 small text-center">Brze akcije</h6>
-                <div class="d-grid gap-2 px-3">
-                    <a href="/devices/add" class="btn btn-primary btn-sm shadow-sm py-2 fw-bold">
-                        <i class="bi bi-plus-lg me-2"></i> Novi uređaj
-                    </a>
-                    <a href="/subnets" class="btn btn-outline-light btn-sm py-2">
-                        <i class="bi bi-grid-3x3-gap me-2"></i> Pregled IP mape
-                    </a>
-                </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm border-start border-warning border-4">
+            <div class="card-body py-3">
+                <small class="text-uppercase fw-bold text-muted small">Online (Live)</small>
+                <h3 class="mb-0 fw-bold text-success">{{ status_data.get('active', 0) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm border-start border-danger border-4">
+            <div class="card-body py-3">
+                <small class="text-uppercase fw-bold text-muted small">Offline / Dead</small>
+                <h3 class="mb-0 fw-bold text-danger">{{ status_data.get('offline', 0) }}</h3>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card border-0 shadow-sm mt-4 overflow-hidden">
-    <div class="card-header bg-white py-3">
-        <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-info-circle me-2 text-info"></i>Status sustava</h5>
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold py-3"><i class="bi bi-pie-chart me-2"></i>Status uređaja</div>
+            <div class="card-body d-flex justify-content-center">
+                <div style="width: 300px;"><canvas id="statusChart"></canvas></div>
+            </div>
+        </div>
     </div>
-    <div class="card-body bg-light-subtle">
+    
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold py-3"><i class="bi bi-bar-chart me-2"></i>Okruženja (Infrastruktura)</div>
+            <div class="card-body">
+                <canvas id="envChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-body p-4 bg-dark text-white rounded">
         <div class="row align-items-center">
             <div class="col-md-8">
-                <p class="mb-0 fs-5">
-                    Sustav trenutno aktivno prati <strong>{{ device_count }}</strong> uređaja raspoređenih kroz 
-                    <strong>{{ subnet_count }}</strong> mrežna segmenta.
-                </p>
+                <h5 class="fw-bold mb-1"><i class="bi bi-lightning-charge text-warning me-2"></i>Spreman za Discovery?</h5>
+                <p class="mb-0 text-white-50">Sljedeći korak je aktivacija automatskog skenera koji će samostalno ažurirati ove grafikone.</p>
             </div>
-            <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                <span class="badge bg-success-subtle text-success border border-success px-3 py-2">
-                    <i class="bi bi-shield-check me-1"></i> Svi moduli su aktivni
-                </span>
+            <div class="col-md-4 text-md-end">
+                <span class="badge bg-primary px-3 py-2">Faza 2: In Progress</span>
             </div>
         </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+
+<script>
+$(document).ready(function() {
+    // 1. DATA ZA STATUS CHART
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Aktivan', 'Rezerviran', 'Isključen', 'Nepoznato'],
+            datasets: [{
+                data: [
+                    {{ status_data.get('active', 0) }},
+                    {{ status_data.get('reserved', 0) }},
+                    {{ status_data.get('offline', 0) }},
+                    {{ status_data.get('unknown', 0) }}
+                ],
+                backgroundColor: ['#198754', '#ffc107', '#dc3545', '#6c757d'],
+                borderWidth: 0
+            }]
+        },
+        options: { cutout: '70%', plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // 2. DATA ZA ENVIRONMENT CHART
+    const envCtx = document.getElementById('envChart').getContext('2d');
+    new Chart(envCtx, {
+        type: 'bar',
+        data: {
+            labels: [{% for env in env_data.keys() %}'{{ env }}',{% endfor %}],
+            datasets: [{
+                label: 'Broj uređaja',
+                data: [{% for count in env_data.values() %}{{ count }},{% endfor %}],
+                backgroundColor: '#0d6efd',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } },
+            plugins: { legend: { display: false } }
+        }
+    });
+});
+</script>
 
 {% endblock %}

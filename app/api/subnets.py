@@ -11,7 +11,19 @@ from app.services import subnet_service
 from app.services.flash import flash
 from app.core.ui import templates  # Korištenje centralnog UI objekta
 
+from fastapi import BackgroundTasks
+from app.services import discovery_service 
+
 router = APIRouter(tags=["subnets"])
+
+@router.post("/{subnet_id}/scan")
+def trigger_scan(subnet_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """
+    Pokreće skeniranje podmreže u pozadini kako ne bi blokiralo UI.
+    """
+    background_tasks.add_task(discovery_service.run_subnet_scan, db, subnet_id)
+    resp = RedirectResponse(url=f"/subnets/{subnet_id}", status_code=303)
+    return flash(resp, "Skeniranje podmreže pokrenuto u pozadini. Osvježite stranicu za par trenutaka.")
 
 # --- LISTA PODMREŽA ---
 @router.get("/")

@@ -330,3 +330,31 @@ form .btn-primary:hover {
     animation: radar-pulse 1.5s infinite ease-in-out;
     display: inline-block;
 }
+
+/* Animacija za nove pronađene uređaje (Glow efekt) */
+.update-glow {
+    box-shadow: 0 0 15px #198754;
+    border-color: #fff !important;
+    transform: scale(1.1);
+    z-index: 10;
+    transition: all 0.5s ease;
+}
+
+/* Radar pulsiranje */
+.pulse-dot { animation: pulse-red 1.5s infinite; }
+@keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.radar-active { 
+    animation: spin 2s linear infinite; 
+    display: inline-block; 
+}
+@keyframes spin { 
+    from { transform: rotate(0deg); } 
+    to { transform: rotate(360deg); } 
+}
+
+/* Terminal scrollbar styling */
+#scanTerminal::-webkit-scrollbar { width: 8px; }
+#scanTerminal::-webkit-scrollbar-track { background: #000; }
+#scanTerminal::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+#scanTerminal::-webkit-scrollbar-thumb:hover { background: #444; }

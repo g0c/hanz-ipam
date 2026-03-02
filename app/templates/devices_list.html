@@ -1,177 +1,161 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <h3 class="mb-0"><i class="bi bi-cpu me-2 text-primary"></i>Upravljanje uređajima</h3>
-    <a class="btn btn-primary shadow-sm" href="/devices/add">
-        <i class="bi bi-plus-lg"></i> Dodaj novi uređaj
-    </a>
-</div>
-
-<div class="card mb-4 border-0 shadow-sm">
-    <div class="card-body p-2">
-        <div class="input-group">
-            <span class="input-group-text bg-white border-0"><i class="bi bi-search text-muted"></i></span>
-            <input id="globalSearch" type="text" class="form-control border-0 shadow-none" placeholder="Brza pretraga (hostname, IP, lokacija)...">
+<div class="row mb-4 align-items-center">
+    <div class="col">
+        <h2 class="fw-bold text-dark"><i class="bi bi-hdd-stack-fill me-2 text-primary"></i>Inventar Uređaja</h2>
+        <p class="text-muted">Pregled i upravljanje svim mrežnim resursima u realnom vremenu.</p>
+    </div>
+    <div class="col-auto">
+        <div class="btn-group shadow-sm">
+            <a href="/devices/add" class="btn btn-primary fw-bold">
+                <i class="bi bi-plus-lg me-1"></i> Dodaj Uređaj
+            </a>
+            <button onclick="window.location.reload()" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
         </div>
     </div>
 </div>
 
-<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
-<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
-
-<div class="table-responsive">
-    <table id="devicesTable" class="table table-hover align-middle bg-white shadow-sm" style="width:100%">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>ID</th>
-                <th>Hostname</th>
-                <th>IP adresa</th>
-                <th>Tip</th>
-                <th>Okruženje</th>
-                <th>Status</th>
-                <th>Zadnji pregled</th>
-                <th class="text-end">Akcije</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for d in devices %}
-            <tr data-id="{{ d.id }}">
-                <td class="text-muted small">{{ loop.index }}</td>
-                <td class="fw-bold text-secondary">{{ d.id }}</td>
-                <td><strong>{{ d.hostname or '-' }}</strong></td>
-                <td class="font-monospace text-primary fw-bold">{{ d.ip_addr }}</td>
-                <td><i class="bi bi-device-ssd me-1 text-muted"></i>{{ d.device_type or '-' }}</td>
-                <td>
-                    <span class="badge {% if d.environment == 'PROD' %}bg-danger{% elif d.environment == 'TEST' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">
-                        {{ d.environment or '-' }}
-                    </span>
-                </td>
-                <td class="status-col">
-                    {% if d.status.value == 'active' %}
-                        <span class="ping-pulse" title="Uređaj je aktivan"></span>
-                        <span class="badge bg-success">Aktivan</span>
-                    {% elif d.status.value == 'offline' %}
-                        <span class="badge bg-danger">Isključen</span>
-                    {% elif d.status.value == 'reserved' %}
-                        <span class="badge bg-warning text-dark">Rezerviran</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Nepoznato</span>
-                    {% endif %}
-                </td>
-                <td class="last-seen-col small">{{ d.last_seen.strftime("%Y-%m-%d %H:%M:%S") if d.last_seen else "Nikada" }}</td>
-                <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-warning btn-ping" title="Pingaj odmah" data-id="{{ d.id }}">
-                            <i class="bi bi-lightning-fill"></i>
-                        </button>
-                        <a class="btn btn-outline-primary" href="/devices/{{ d.id }}"><i class="bi bi-eye"></i></a>
-                        <a class="btn btn-outline-secondary" href="/devices/{{ d.id }}/edit"><i class="bi bi-pencil"></i></a>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle w-100" id="devicesTable">
+                <thead class="table-light text-uppercase small fw-bold">
+                    <tr>
+                        <th class="ps-3">Hostname & MAC</th>
+                        <th>IP Adresa</th>
+                        <th>Okruženje</th>
+                        <th>Tip</th>
+                        <th class="text-center">Status</th>
+                        <th>Zadnji Put Viđen</th>
+                        <th class="text-end pe-3 no-sort">Akcije</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in devices %}
+                    <tr>
+                        <td class="ps-3">
+                            <div class="fw-bold text-dark">{{ d.hostname or 'Nepoznato' }}</div>
+                            <div class="text-muted small font-monospace">{{ d.mac or '00:00:00:00:00:00' }}</div>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-primary border font-monospace px-2 py-1 fs-6">
+                                {{ d.ip_addr }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if d.environment == 'PROD' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger">PROD</span>
+                            {% elif d.environment == 'TEST' %}
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">TEST</span>
+                            {% else %}
+                                <span class="badge bg-info-subtle text-info-emphasis border border-info">DEV</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small class="text-muted fw-bold">
+                                <i class="bi {% if d.device_type == 'Server' %}bi-server{% elif d.device_type == 'Switch' %}bi-router{% else %}bi-cpu{% endif %} me-1"></i>
+                                {{ d.device_type or 'Other' }}
+                            </small>
+                        </td>
+                        <td class="text-center">
+                            {% if d.status.value == 'active' %}
+                                <span class="badge rounded-pill bg-success px-3">
+                                    <i class="bi bi-circle-fill me-1 small"></i> Online
+                                </span>
+                            {% elif d.status.value == 'offline' %}
+                                <span class="badge rounded-pill bg-danger px-3">
+                                    <i class="bi bi-circle-fill me-1 small"></i> Offline
+                                </span>
+                            {% elif d.status.value == 'reserved' %}
+                                <span class="badge rounded-pill bg-warning text-dark px-3">
+                                    <i class="bi bi-lock-fill me-1 small"></i> Reserved
+                                </span>
+                            {% else %}
+                                <span class="badge rounded-pill bg-secondary px-3">Unknown</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="small text-muted">
+                                <i class="bi bi-clock-history me-1"></i>
+                                {{ d.last_seen.strftime("%d.%m.%Y %H:%M") if d.last_seen else 'Nikada' }}
+                            </div>
+                        </td>
+                        <td class="text-end pe-3">
+                            <div class="btn-group shadow-sm border rounded">
+                                <a href="/devices/{{ d.id }}" class="btn btn-sm btn-white text-primary" title="Pregled"><i class="bi bi-eye-fill"></i></a>
+                                <a href="/devices/{{ d.id }}/edit" class="btn btn-sm btn-white text-secondary" title="Uredi"><i class="bi bi-pencil-fill"></i></a>
+                                <button class="btn btn-sm btn-white text-danger" title="Ping" onclick="pingQuick('{{ d.id }}')">
+                                    <i class="bi bi-broadcast"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
-<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
+
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colvis.min.js"></script>
-<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
-<script src="https://cdn.datatables.net/plug-ins/1.13.6/sorting/datetime-moment.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ipaddr.js/2.1.0/ipaddr.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
 
 
 
 <script>
-$(document).ready(function () {
-    // Postavljanje sortiranja za datume
-    $.fn.dataTable.moment('YYYY-MM-DD HH:mm:ss');
-
-    // Stilovi za gumbe izvoza
-    $.extend(true, $.fn.dataTable.Buttons.defaults, {
-        dom: { button: { className: 'btn btn-outline-secondary btn-sm' } }
-    });
-
-    // Custom sorting za IP adrese (IPv4 i IPv6)
-    $.fn.dataTable.ext.type.order['ipaddr-pre'] = function (data) {
-        if (!data) return '';
-        var txt = $('<div>').html(data).text().trim();
-        try {
-            var addr = ipaddr.parse(txt);
-            var bytes = addr.toByteArray();
-            return bytes.map(b => ('0' + b.toString(16)).slice(-2)).join('');
-        } catch (e) { return txt; }
-    };
-
+$(document).ready(function() {
     var table = $('#devicesTable').DataTable({
-        dom: 'Brtip',
-        pageLength: 25,
-        responsive: true,
-        order: [[3, 'asc']], // Sortiraj po IP adresi po defaultu
-        language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/hr.json" },
-        buttons: [
-            { extend: 'csv', text: '<i class="bi bi-filetype-csv"></i> CSV' },
-            { extend: 'excel', text: '<i class="bi bi-file-earmark-excel"></i> Excel' },
-            { extend: 'pdf', text: '<i class="bi bi-file-earmark-pdf"></i> PDF' },
-            { extend: 'print', text: '<i class="bi bi-printer"></i> Ispis' },
-            { 
-                extend: 'colvis', 
-                text: '<i class="bi bi-layout-three-columns"></i> Kolone',
-                // Fix za dropdown pozicioniranje
-                attr: { 'data-bs-boundary': 'window' }
+        "order": [[ 0, "asc" ]],
+        "pageLength": 25,
+        "dom": '<"d-flex justify-content-between align-items-center mb-3"Bf>rt<"d-flex justify-content-between align-items-center mt-3"ip>',
+        "buttons": [
+            {
+                extend: 'excelHtml5',
+                text: '<i class="bi bi-file-earmark-excel me-1"></i> Excel',
+                className: 'btn btn-success btn-sm border-0'
+            },
+            {
+                extend: 'csvHtml5',
+                text: '<i class="bi bi-filetype-csv me-1"></i> CSV',
+                className: 'btn btn-info btn-sm text-white border-0'
+            },
+            {
+                extend: 'pdfHtml5',
+                text: '<i class="bi bi-file-earmark-pdf me-1"></i> PDF',
+                className: 'btn btn-danger btn-sm border-0'
             }
         ],
-        columnDefs: [
-            { targets: 3, type: 'ipaddr' },
-            { targets: 8, orderable: false }
-        ]
+        "language": {
+            "search": "_INPUT_",
+            "searchPlaceholder": "Pretraži uređaje...",
+            "lengthMenu": "Prikaži _MENU_ zapisa",
+            "info": "Prikazano _START_ do _END_ od ukupno _TOTAL_ uređaja",
+            "paginate": { "next": "→", "previous": "←" }
+        },
+        "columnDefs": [{ "targets": 'no-sort', "orderable": false }]
     });
 
-    // Brzi ping direktno iz tablice
-    $('#devicesTable').on('click', '.btn-ping', function() {
-        const $btn = $(this);
-        const deviceId = $btn.data('id');
-        const $row = $btn.closest('tr');
-        const $statusCell = $row.find('.status-col');
-        const $lastSeenCell = $row.find('.last-seen-col');
-
-        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
-
-        fetch(`/devices/${deviceId}/ping`, { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                let statusHtml = '';
-                if (data.status === 'active') {
-                    statusHtml = '<span class="ping-pulse"></span> <span class="badge bg-success">Aktivan</span>';
-                } else {
-                    statusHtml = '<span class="badge bg-danger">Isključen</span>';
-                }
-                
-                $statusCell.html(statusHtml);
-                $lastSeenCell.text(data.last_seen);
-                $btn.prop('disabled', false).html('<i class="bi bi-lightning-fill"></i>');
-                
-                table.row($row).invalidate().draw(false);
-            })
-            .catch(err => {
-                console.error('Ping neuspješan:', err);
-                $btn.prop('disabled', false).html('<i class="bi bi-lightning-fill"></i>');
-            });
-    });
-
-    $('#globalSearch').on('keyup change', function () {
-        table.search(this.value).draw();
-    });
+    // Stil za search input
+    $('.dataTables_filter input').addClass('form-control shadow-sm border-primary-subtle');
 });
+
+// Funkcija za brzi ping (opcionalno)
+function pingQuick(id) {
+    alert("Pinganje uređaja ID: " + id + "...");
+    // Ovdje može ići AJAX poziv sličan onome u devices_view.html
+}
 </script>
+
 {% endblock %}
