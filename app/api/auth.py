@@ -1,4 +1,4 @@
-# v1.0.1
+# v1.0.2
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -35,11 +35,12 @@ def login(username: str = Form(...), password: str = Form(...), db: Session = De
     if not user or not user.is_active or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Neispravni podaci")
 
+    # U security.py smo već podesili trajanje tokena na 7 dana
     token = create_access_token({"sub": user.username, "uid": user.id})
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     
-    # Postavljamo path="/" kako bi token bio dostupan cijeloj aplikaciji, a ne samo unutar /auth
-    response.set_cookie(key="access_token", value=token, httponly=True, secure=False, samesite="lax", max_age=1800, path="/")
+    # max_age je sada 604800 sekundi (7 dana)
+    response.set_cookie(key="access_token", value=token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
     return response
 
 # Odjavljuje korisnika brisanjem JWT kolačića i preusmjerava natrag na login formu
