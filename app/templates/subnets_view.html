@@ -8,13 +8,13 @@
             <div>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb mb-1">
-                        <li class="breadcrumb-item"><a href="/subnets">Podmreže</a></li>
+                        <li class="breadcrumb-item"><a href="/subnets" class="text-decoration-none">Podmreže</a></li>
                         <li class="breadcrumb-item active">{{ data.subnet.cidr }}</li>
                     </ol>
                 </nav>
                 <h3 class="fw-bold mb-0">
                     <i class="bi bi-layers-half text-primary me-2"></i>{{ data.subnet.name or 'Segment' }}
-                    <span class="badge bg-secondary ms-2 fs-6">{{ data.subnet.cidr }}</span>
+                    <span class="badge bg-dark ms-2 fs-6">{{ data.subnet.cidr }}</span>
                 </h3>
             </div>
             
@@ -26,10 +26,7 @@
                         <span id="scanSpinner" class="spinner-border spinner-border-sm d-none"></span>
                     </button>
                 </form>
-                
-                <a href="/subnets/{{ data.subnet.id }}/edit" class="btn btn-outline-primary">
-                    <i class="bi bi-pencil me-1"></i>Uredi
-                </a>
+                <a href="/subnets/{{ data.subnet.id }}/edit" class="btn btn-outline-primary"><i class="bi bi-pencil"></i></a>
                 <a href="/subnets" class="btn btn-outline-secondary">Natrag</a>
             </div>
         </div>
@@ -39,11 +36,11 @@
                 <span class="fw-bold"><i class="bi bi-grid-3x3-gap me-2"></i>Visual IP Map</span>
                 <div class="d-flex gap-3 small">
                     <span><i class="bi bi-square-fill text-success me-1"></i>Zauzeto</span>
-                    <span><i class="bi bi-square-fill text-info me-1"></i>Net/GW</span>
-                    <span><i class="bi bi-square me-1"></i>Slobodno</span>
+                    <span><i class="bi bi-square-fill text-info me-1"></i>Rezervirano</span>
+                    <span><i class="bi bi-square me-1 text-muted"></i>Slobodno</span>
                 </div>
             </div>
-            <div class="card-body bg-light">
+            <div class="card-body">
                 <div class="ip-grid">
                     {% for item in data.map %}
                     <div class="ip-box-wrapper" data-bs-toggle="tooltip" data-bs-placement="top" 
@@ -66,34 +63,24 @@
                     {% endfor %}
                 </div>
             </div>
-            <div class="card-footer bg-white text-muted small py-2">
-                <i class="bi bi-info-circle me-1"></i> Kliknite na slobodnu adresu za dodavanje novog uređaja ili na zauzetu za pregled detalja.
-            </div>
         </div>
     </div>
 </div>
 
-
-
 <script>
 $(document).ready(function() {
-    // Inicijalizacija tooltipsa za IP adrese
+    // Aktiviraj tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (el) {
         return new bootstrap.Tooltip(el)
     });
 
-    // Vizualni feedback kod klika na Scan
+    // Scan animacija
     $('#scanForm').on('submit', function() {
-        const $btn = $('#scanBtn');
-        const $icon = $('#radarIcon');
-        const $text = $('#scanBtnText');
-        const $spinner = $('#scanSpinner');
-
-        $btn.addClass('disabled').prop('disabled', true);
-        $icon.addClass('radar-active');
-        $text.text('Njuškam po mreži...');
-        $spinner.removeClass('d-none');
+        $('#scanBtn').addClass('disabled').prop('disabled', true);
+        $('#radarIcon').addClass('radar-active');
+        $('#scanBtnText').text('Skeniranje...');
+        $('#scanSpinner').removeClass('d-none');
     });
 });
 </script>
