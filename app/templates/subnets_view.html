@@ -1,72 +1,99 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <div>
-        <h3 class="mb-0"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>IP Mapa: {{ data.subnet.name or 'Bez naziva' }}</h3>
-        <code class="fs-5">{{ data.subnet.cidr }}</code> (VLAN: {{ data.subnet.vlan_id or 'N/A' }})
-    </div>
-    <div class="text-end">
-        <div class="mb-2 d-flex align-items-center justify-content-end">
-            <span class="ip-legend-box ip-box-free border"></span> <small class="me-3 ms-1">Slobodno</small>
-            <span class="ip-legend-box ip-box-used border"></span> <small class="me-3 ms-1">Zauzeto</small>
-            <span class="ip-legend-box ip-box-gateway border"></span> <small class="me-3 ms-1">Pristupnik</small>
-            <span class="ip-legend-box ip-box-reserved border"></span> <small class="ms-1">Rezervirano</small>
+<div class="row justify-content-center mt-4">
+    <div class="col-md-12">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white rounded shadow-sm border-start border-4 border-primary">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="/subnets">Podmreže</a></li>
+                        <li class="breadcrumb-item active">{{ data.subnet.cidr }}</li>
+                    </ol>
+                </nav>
+                <h3 class="fw-bold mb-0">
+                    <i class="bi bi-layers-half text-primary me-2"></i>{{ data.subnet.name or 'Segment' }}
+                    <span class="badge bg-secondary ms-2 fs-6">{{ data.subnet.cidr }}</span>
+                </h3>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <form action="/subnets/{{ data.subnet.id }}/scan" method="post" id="scanForm">
+                    <button type="submit" id="scanBtn" class="btn btn-warning fw-bold shadow-sm">
+                        <i class="bi bi-radar me-1" id="radarIcon"></i>
+                        <span id="scanBtnText">Skeniraj mrežu</span>
+                        <span id="scanSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                    </button>
+                </form>
+                
+                <a href="/subnets/{{ data.subnet.id }}/edit" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil me-1"></i>Uredi
+                </a>
+                <a href="/subnets" class="btn btn-outline-secondary">Natrag</a>
+            </div>
         </div>
-        <a href="/subnets" class="btn btn-outline-secondary btn-sm shadow-sm">
-            <i class="bi bi-arrow-left"></i> Natrag na listu
-        </a>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+                <span class="fw-bold"><i class="bi bi-grid-3x3-gap me-2"></i>Visual IP Map</span>
+                <div class="d-flex gap-3 small">
+                    <span><i class="bi bi-square-fill text-success me-1"></i>Zauzeto</span>
+                    <span><i class="bi bi-square-fill text-info me-1"></i>Net/GW</span>
+                    <span><i class="bi bi-square me-1"></i>Slobodno</span>
+                </div>
+            </div>
+            <div class="card-body bg-light">
+                <div class="ip-grid">
+                    {% for item in data.map %}
+                    <div class="ip-box-wrapper" data-bs-toggle="tooltip" data-bs-placement="top" 
+                         title="{{ item.ip }}{% if item.device %} ({{ item.device.hostname }}){% endif %}">
+                        
+                        {% if item.is_used %}
+                            <a href="/devices/{{ item.device.id }}" class="ip-box ip-used">
+                                {{ item.ip.split('.')[-1] }}
+                            </a>
+                        {% elif item.type != 'host' %}
+                            <div class="ip-box ip-reserved">
+                                {{ item.ip.split('.')[-1] }}
+                            </div>
+                        {% else %}
+                            <a href="/devices/add?ip={{ item.ip }}&subnet_id={{ data.subnet.id }}" class="ip-box ip-free">
+                                {{ item.ip.split('.')[-1] }}
+                            </a>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-footer bg-white text-muted small py-2">
+                <i class="bi bi-info-circle me-1"></i> Kliknite na slobodnu adresu za dodavanje novog uređaja ili na zauzetu za pregled detalja.
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-display me-2"></i>Vizualni pregled adresa</span>
-        <small class="text-white-50">Prijeđite mišem preko kvadratića za detalje</small>
-    </div>
-    <div class="card-body">
-        <div class="ip-grid-container">
-            {% for entry in data.map %}
-                {% if entry.type == 'network' or entry.type == 'broadcast' %}
-                    <div class="ip-box ip-box-reserved" 
-                         data-bs-toggle="tooltip" 
-                         title="{{ 'Mrežna adresa' if entry.type == 'network' else 'Broadcast adresa' }}: {{ entry.ip }}">
-                        {{ entry.ip.split('.')[-1] }}
-                    </div>
 
-                {% elif entry.type == 'gateway' %}
-                    <div class="ip-box ip-box-gateway" 
-                         data-bs-toggle="tooltip" 
-                         title="Zadani pristupnik (Preporučeno): {{ entry.ip }}">
-                        GW
-                    </div>
-
-                {% elif entry.is_used %}
-                    <div class="ip-box ip-box-used" 
-                         data-bs-toggle="tooltip" data-bs-html="true" 
-                         title="<strong>{{ entry.ip }}</strong><br>Uređaj: {{ entry.device.hostname or 'N/A' }}">
-                        {{ entry.ip.split('.')[-1] }}
-                    </div>
-
-                {% else %}
-                    <a href="/devices/add?ip={{ entry.ip }}&subnet={{ data.subnet.id }}" 
-                       class="ip-box ip-box-free text-decoration-none" 
-                       data-bs-toggle="tooltip" 
-                       title="Slobodna IP adresa: {{ entry.ip }}">
-                        {{ entry.ip.split('.')[-1] }}
-                    </a>
-                {% endif %}
-            {% endfor %}
-        </div>
-    </div>
-</div>
 
 <script>
 $(document).ready(function() {
-    // Inicijalizacija Bootstrap Tooltipa za prikaz detalja adresa
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
+    // Inicijalizacija tooltipsa za IP adrese
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (el) {
+        return new bootstrap.Tooltip(el)
+    });
+
+    // Vizualni feedback kod klika na Scan
+    $('#scanForm').on('submit', function() {
+        const $btn = $('#scanBtn');
+        const $icon = $('#radarIcon');
+        const $text = $('#scanBtnText');
+        const $spinner = $('#scanSpinner');
+
+        $btn.addClass('disabled').prop('disabled', true);
+        $icon.addClass('radar-active');
+        $text.text('Njuškam po mreži...');
+        $spinner.removeClass('d-none');
     });
 });
 </script>

@@ -246,3 +246,78 @@ form .btn-primary:hover {
 .ip-grid-container {
     overflow-x: auto;
 }
+
+/* v1.2.0 - IP Grid & Radar Animation */
+
+/* Kontejner za IP kvadratiće */
+.ip-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: start;
+}
+
+/* Osnovni stil kvadratića */
+.ip-box {
+    width: 36px;
+    height: 36px;
+    font-size: 0.65rem;
+    font-weight: bold;
+    text-decoration: none;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background-color: #ffffff;
+    color: #495057;
+}
+
+/* Statusi adresa */
+.ip-used {
+    background-color: #198754 !important;
+    color: #ffffff !important;
+    border-color: #146c43;
+}
+
+.ip-used:hover {
+    background-color: #157347 !important;
+    transform: scale(1.15);
+    z-index: 5;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.ip-free {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+}
+
+.ip-free:hover {
+    background-color: #ffffff !important;
+    color: #0d6efd;
+    border-color: #0d6efd;
+    transform: scale(1.15);
+    z-index: 5;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.ip-reserved {
+    background-color: #cfe2ff;
+    color: #084298;
+    border-color: #b6d4fe;
+    cursor: default;
+}
+
+/* Radar Pulsiranje */
+@keyframes radar-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.6; color: #dc3545; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.radar-active {
+    animation: radar-pulse 1.5s infinite ease-in-out;
+    display: inline-block;
+}
