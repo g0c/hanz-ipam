@@ -1,74 +1,69 @@
-# v1.0.5
-from sqlalchemy.orm import declarative_base, relationship
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, BigInteger, Text
+# v1.1.0
+# Centralni modeli baze podataka za IPAM sustav.
+
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Enum
+from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
+from app.core.db import Base
 
-# Osnovna klasa za sve SQLAlchemy modele
-Base = declarative_base()
-
-# Statusi uređaja usklađeni s MySQL ENUM tipom
+# Enumeracija za statuse uređaja
 class DeviceStatus(enum.Enum):
     active = "active"
     reserved = "reserved"
     offline = "offline"
     unknown = "unknown"
 
-# Model korisnika sustava
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    username = Column(String(64), unique=True, nullable=False)
-    email = Column(String(255), unique=True)
-    password_hash = Column(String(255), nullable=False)
-    display_name = Column(String(128))
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(100))
+    role = Column(String(20), default="user") # 'admin' ili 'user'
 
-# Model mrežnog segmenta (Subnet) - DODANI STUPCI name I vlan_id
 class Subnet(Base):
     __tablename__ = "subnets"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    cidr = Column(String(32), nullable=False)
-    name = Column(String(128), nullable=True)     # Naziv mreže (npr. Produkcija)
-    vlan_id = Column(Integer, nullable=True)     # VLAN ID (npr. 100)
-    description = Column(String(255), nullable=True)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    cidr = Column(String(45), unique=True, nullable=False)
+    vlan_id = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
     
+    # Veza s uređajima
     devices = relationship("Device", back_populates="subnet")
 
-# Glavni model mrežnog uređaja
 class Device(Base):
     __tablename__ = "devices"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    hostname = Column(String(255), nullable=True)
-    ip_addr = Column(String(45), unique=True, nullable=False)
-    mac = Column(String(32), nullable=True)
-    vendor = Column(String(128), nullable=True)
+    id = Column(Integer, primary_key=True, index=True)
+    hostname = Column(String(100), nullable=False)
+    ip_addr = Column(String(45), unique=True, index=True, nullable=False)
+    mac = Column(String(17), nullable=True)
+    vendor = Column(String(100), nullable=True)
     status = Column(Enum(DeviceStatus), default=DeviceStatus.unknown)
-    
     description = Column(Text, nullable=True)
     location = Column(String(255), nullable=True)
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
     last_seen = Column(DateTime, nullable=True)
     
-    subnet_id = Column(Integer, ForeignKey("subnets.id", ondelete="SET NULL"), nullable=True)
+    # Audit i relacije
+    subnet_id = Column(Integer, ForeignKey("subnets.id"), nullable=True)
+    environment = Column(String(20), default="PROD") # PROD, TEST, DEV
+    device_type = Column(String(50), default="Server") # VM, Switch, Router...
+    created_by = Column(String(50), nullable=True)
+    updated_by = Column(String(50), nullable=True)
+    
     subnet = relationship("Subnet", back_populates="devices")
 
-    environment = Column(String(50), nullable=True) # PROD, TEST, DEV
-    device_type = Column(String(50), nullable=True) # Server, VM, Network...
-    created_by = Column(String(64), nullable=True)
-    updated_by = Column(String(64), nullable=True)
-
-# Model korisničke sesije
-class Session(Base):
-    __tablename__ = "sessions"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    refresh_token = Column(String(64), unique=True, nullable=False)
-    expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    user = relationship("User", back_populates="sessions")
+class AuditLog(Base):
+    """Sustav za praćenje svih promjena (Discovery i User akcije)."""
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=datetime.now)
+    username = Column(String(50), nullable=False)
+    action = Column(String(20), nullable=False) # CREATE, UPDATE, DELETE, DISCOVERY
+    target_type = Column(String(20), nullable=False) # DEVICE, SUBNET
+    target_id = Column(Integer, nullable=True)
+    details = Column(Text, nullable=True)
+    source_ip = Column(String(45), nullable=True)
