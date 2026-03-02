@@ -1,79 +1,124 @@
-# v1.0.2
-# API rute za upravljanje mrežnim segmentima (Subnetima)
+# v1.1.0
+# Ruter za upravljanje mrežnim segmentima (Subnets) - IPAM modul.
+
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
-from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+import ipaddress
+
 from app.api.dependencies import get_current_user, get_db
 from app.services import subnet_service
 from app.services.flash import flash
+from app.core.ui import templates  # Korištenje centralnog UI objekta
 
 router = APIRouter(tags=["subnets"])
-templates = Jinja2Templates(directory="app/templates")
 
-# Dohvaćanje liste svih subneta s izračunatom statistikom
+# --- LISTA PODMREŽA ---
 @router.get("/")
 def list_subnets(request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    subnets = subnet_service.get_all_subnets_with_stats(db)
-    return templates.TemplateResponse("subnets_list.html", {"request": request, "subnets": subnets, "user": user})
+    # Dohvaćanje svih podmreža s izračunatim postotkom iskorištenja
+    subnets = subnet_service.get_subnets_with_usage(db)
+    return templates.TemplateResponse("subnets_list.html", {
+        "request": request,
+        "subnets": subnets,
+        "user": user
+    })
 
-# Dodavanje novog subneta (Sada podržava naziv i VLAN)
+# --- DODAVANJE NOVE PODMREŽE ---
 @router.post("/add")
 def add_subnet(
     request: Request,
-    cidr: str = Form(...), 
-    name: str = Form(None),
-    vlan_id: int = Form(None),
-    description: str = Form(None), 
-    db: Session = Depends(get_db), 
-    user=Depends(get_current_user)
-):
-    try:
-        subnet_service.create_subnet(db, cidr=cidr, name=name, vlan_id=vlan_id, description=description)
-        resp = RedirectResponse(url="/subnets", status_code=303)
-        return flash(resp, "Novi subnet je uspješno dodan!")
-    except Exception as e:
-        # Ako CIDR nije ispravan, vraćamo korisnika na listu s porukom o grešci
-        subnets = subnet_service.get_all_subnets_with_stats(db)
-        return templates.TemplateResponse("subnets_list.html", {
-            "request": request, "subnets": subnets, "user": user, "error": f"Greška kod unosa: {str(e)}"
-        })
-
-# Prikaz IP mape za odabrani subnet
-@router.get("/{subnet_id}")
-def view_subnet(subnet_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    data = subnet_service.get_subnet_map(db, subnet_id)
-    if not data:
-        raise HTTPException(status_code=404, detail="Subnet nije pronađen")
-    return templates.TemplateResponse("subnets_view.html", {"request": request, "data": data, "user": user})
-
-# Prikaz HTML forme za uređivanje postojećeg subneta
-@router.get("/{subnet_id}/edit")
-def edit_subnet_form(subnet_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    subnet = subnet_service.get_subnet(db, subnet_id)
-    if not subnet:
-        raise HTTPException(status_code=404, detail="Subnet nije pronađen")
-    return templates.TemplateResponse("subnets_edit.html", {"request": request, "subnet": subnet, "user": user})
-
-# Spremanje promjena nakon uređivanja subneta
-@router.post("/{subnet_id}/edit")
-def edit_subnet(
-    subnet_id: int,
-    request: Request,
+    name: str = Form(...),
     cidr: str = Form(...),
-    name: str = Form(None),
     vlan_id: int = Form(None),
     description: str = Form(None),
     db: Session = Depends(get_db),
     user=Depends(get_current_user)
 ):
     try:
-        subnet_service.update_subnet(db, subnet_id, name=name, cidr=cidr, vlan_id=vlan_id, description=description)
+        # Validacija CIDR zapisa prije pokušaja spremanja
+        ipaddress.ip_network(cidr)
+        
+        # Spremanje u bazu (sada uključuje name i vlan_id)
+        subnet_service.create_subnet(
+            db, 
+            name=name, 
+            cidr=cidr, 
+            vlan_id=vlan_id, 
+            description=description
+        )
+        
         resp = RedirectResponse(url="/subnets", status_code=303)
-        return flash(resp, "Promjene u subnetu su uspješno spremljene!")
+        return flash(resp, f"Podmreža {name} je uspješno kreirana!")
+        
+    except ValueError:
+        # Greška ako CIDR nije ispravan (npr. 192.168.1.5/24 umjesto .0/24)
+        subnets = subnet_service.get_subnets_with_usage(db)
+        return templates.TemplateResponse("subnets_list.html", {
+            "request": request,
+            "subnets": subnets,
+            "user": user,
+            "error": "Neispravna CIDR notacija! Provjerite bazu mreže (npr. .0/24)."
+        })
     except Exception as e:
-        # Vraćamo formu za uređivanje u slučaju greške (npr. neispravan CIDR format)
+        subnets = subnet_service.get_subnets_with_usage(db)
+        return templates.TemplateResponse("subnets_list.html", {
+            "request": request,
+            "subnets": subnets,
+            "user": user,
+            "error": f"Greška pri spremanju: {str(e)}"
+        })
+
+# --- VIZUALNI PREGLED (IP MAPA) ---
+@router.get("/{subnet_id}")
+def view_subnet(subnet_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    # Generira mapu svih IP adresa unutar segmenta
+    data = subnet_service.get_subnet_map(db, subnet_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Podmreža nije pronađena")
+        
+    return templates.TemplateResponse("subnets_view.html", {
+        "request": request,
+        "data": data,
+        "user": user
+    })
+
+# --- UREĐIVANJE PODMREŽE ---
+@router.get("/{subnet_id}/edit")
+def edit_subnet_form(subnet_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    subnet = subnet_service.get_subnet(db, subnet_id)
+    if not subnet:
+        raise HTTPException(status_code=404, detail="Podmreža nije pronađena")
+        
+    return templates.TemplateResponse("subnets_edit.html", {
+        "request": request,
+        "subnet": subnet,
+        "user": user
+    })
+
+@router.post("/{subnet_id}/edit")
+def update_subnet(
+    subnet_id: int,
+    request: Request,
+    name: str = Form(...),
+    cidr: str = Form(...),
+    vlan_id: int = Form(None),
+    description: str = Form(None),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    try:
+        ipaddress.ip_network(cidr)
+        subnet_service.update_subnet(db, subnet_id, name, cidr, vlan_id, description)
+        
+        resp = RedirectResponse(url="/subnets", status_code=303)
+        return flash(resp, "Promjene na podmreži su uspješno spremljene!")
+        
+    except Exception as e:
         subnet = subnet_service.get_subnet(db, subnet_id)
         return templates.TemplateResponse("subnets_edit.html", {
-            "request": request, "subnet": subnet, "user": user, "error": str(e)
+            "request": request,
+            "subnet": subnet,
+            "user": user,
+            "error": f"Ažuriranje neuspješno: {str(e)}"
         })

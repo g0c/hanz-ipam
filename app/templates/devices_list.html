@@ -1,64 +1,81 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% if request.cookies.get('flash') %}
-<div class="alert alert-success">{{ request.cookies.get('flash') }}</div>
-{% endif %}
-
-<div class="d-flex align-items-center justify-content-between">
-  <h3 class="mb-3">Uređaji</h3>
-  <a class="btn btn-primary" href="/devices/add">Dodaj uređaj</a>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h3 class="mb-0"><i class="bi bi-cpu me-2 text-primary"></i>Upravljanje uređajima</h3>
+    <a class="btn btn-primary shadow-sm" href="/devices/add">
+        <i class="bi bi-plus-lg"></i> Dodaj novi uređaj
+    </a>
 </div>
 
-<div class="mb-3">
-  <input id="globalSearch" type="text" class="form-control" placeholder="Brza pretraga (sve kolone)">
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body p-2">
+        <div class="input-group">
+            <span class="input-group-text bg-white border-0"><i class="bi bi-search text-muted"></i></span>
+            <input id="globalSearch" type="text" class="form-control border-0 shadow-none" placeholder="Brza pretraga (hostname, IP, lokacija)...">
+        </div>
+    </div>
 </div>
 
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
 
-<table id="devicesTable" class="table table-striped table-hover nowrap" style="width:100%">
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>ID</th>
-      <th>Hostname</th>
-      <th>IP adresa</th>
-      <th>Status</th>
-      <th>Zadnji put viđen</th>
-      <th>Akcije</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for d in devices %}
-    <tr>
-      <td>{{ loop.index }}</td>
-      <td>{{ d.id }}</td>
-      <td>{{ d.hostname or '-' }}</td>
-      <td>{{ d.ip_addr }}</td>
-      <td>
-        {% if d.status.value == 'active' %}
-          <span class="badge bg-success">active</span>
-        {% elif d.status.value == 'offline' %}
-          <span class="badge bg-danger">offline</span>
-        {% elif d.status.value == 'reserved' %}
-          <span class="badge bg-warning text-dark">reserved</span>
-        {% else %}
-          <span class="badge bg-secondary">unknown</span>
-        {% endif %}
-      </td>
-      <td>{{ d.last_seen.strftime("%Y-%m-%d %H:%M:%S") if d.last_seen else "" }}</td>
-      <td>
-        <a class="btn btn-sm btn-outline-secondary" href="/devices/{{ d.id }}">Detalji</a>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-responsive">
+    <table id="devicesTable" class="table table-hover align-middle bg-white shadow-sm" style="width:100%">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>ID</th>
+                <th>Hostname</th>
+                <th>IP adresa</th>
+                <th>Tip</th>
+                <th>Okruženje</th>
+                <th>Status</th>
+                <th>Zadnji pregled</th>
+                <th class="text-end">Akcije</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in devices %}
+            <tr data-id="{{ d.id }}">
+                <td class="text-muted small">{{ loop.index }}</td>
+                <td class="fw-bold text-secondary">{{ d.id }}</td>
+                <td><strong>{{ d.hostname or '-' }}</strong></td>
+                <td class="font-monospace text-primary fw-bold">{{ d.ip_addr }}</td>
+                <td><i class="bi bi-device-ssd me-1 text-muted"></i>{{ d.device_type or '-' }}</td>
+                <td>
+                    <span class="badge {% if d.environment == 'PROD' %}bg-danger{% elif d.environment == 'TEST' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">
+                        {{ d.environment or '-' }}
+                    </span>
+                </td>
+                <td class="status-col">
+                    {% if d.status.value == 'active' %}
+                        <span class="ping-pulse" title="Uređaj je aktivan"></span>
+                        <span class="badge bg-success">Aktivan</span>
+                    {% elif d.status.value == 'offline' %}
+                        <span class="badge bg-danger">Isključen</span>
+                    {% elif d.status.value == 'reserved' %}
+                        <span class="badge bg-warning text-dark">Rezerviran</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Nepoznato</span>
+                    {% endif %}
+                </td>
+                <td class="last-seen-col small">{{ d.last_seen.strftime("%Y-%m-%d %H:%M:%S") if d.last_seen else "Nikada" }}</td>
+                <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-warning btn-ping" title="Pingaj odmah" data-id="{{ d.id }}">
+                            <i class="bi bi-lightning-fill"></i>
+                        </button>
+                        <a class="btn btn-outline-primary" href="/devices/{{ d.id }}"><i class="bi bi-eye"></i></a>
+                        <a class="btn btn-outline-secondary" href="/devices/{{ d.id }}/edit"><i class="bi bi-pencil"></i></a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -66,75 +83,92 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
 <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colvis.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
 <script src="https://cdn.datatables.net/plug-ins/1.13.6/sorting/datetime-moment.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ipaddr.js/2.1.0/ipaddr.min.js"></script>
 
+
+
 <script>
 $(document).ready(function () {
-    // Registracija formata datuma
+    // Postavljanje sortiranja za datume
     $.fn.dataTable.moment('YYYY-MM-DD HH:mm:ss');
 
-    // Resetiranje defaultnih DataTables klasa za gumbe kako ne bi bilo konflikta s Bootstrapom
+    // Stilovi za gumbe izvoza
     $.extend(true, $.fn.dataTable.Buttons.defaults, {
-        dom: {
-            button: {
-                className: 'btn btn-outline-secondary'
-            }
-        }
+        dom: { button: { className: 'btn btn-outline-secondary btn-sm' } }
     });
 
-    // Custom detekcija i sortiranje za IP adrese
-    $.fn.dataTable.ext.type.detect.push(function (data) {
-        if (!data) return null;
-        var txt = $('<div>').html(data).text().trim();
-        try { if (ipaddr.isValid(txt)) return 'ipaddr'; } catch(e) {}
-        return null;
-    });
-
+    // Custom sorting za IP adrese (IPv4 i IPv6)
     $.fn.dataTable.ext.type.order['ipaddr-pre'] = function (data) {
         if (!data) return '';
         var txt = $('<div>').html(data).text().trim();
         try {
             var addr = ipaddr.parse(txt);
             var bytes = addr.toByteArray();
-            if (bytes.length === 4) bytes = Array(12).fill(0).concat(bytes);
             return bytes.map(b => ('0' + b.toString(16)).slice(-2)).join('');
         } catch (e) { return txt; }
     };
 
-    // Inicijalizacija tablice
     var table = $('#devicesTable').DataTable({
         dom: 'Brtip',
         pageLength: 25,
         responsive: true,
-        order: [],
-        language: {
-            url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/hr.json" // Učitavanje prijevoda
-        },
+        order: [[3, 'asc']], // Sortiraj po IP adresi po defaultu
+        language: { url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/hr.json" },
         buttons: [
-            { extend: 'csv', text: 'CSV' },
-            { extend: 'excel', text: 'Excel' },
-            { extend: 'pdf', text: 'PDF' },
-            { extend: 'print', text: 'Ispiši' },
-            { extend: 'colvis', text: 'Kolone' }
+            { extend: 'csv', text: '<i class="bi bi-filetype-csv"></i> CSV' },
+            { extend: 'excel', text: '<i class="bi bi-file-earmark-excel"></i> Excel' },
+            { extend: 'pdf', text: '<i class="bi bi-file-earmark-pdf"></i> PDF' },
+            { extend: 'print', text: '<i class="bi bi-printer"></i> Ispis' },
+            { 
+                extend: 'colvis', 
+                text: '<i class="bi bi-layout-three-columns"></i> Kolone',
+                // Fix za dropdown pozicioniranje
+                attr: { 'data-bs-boundary': 'window' }
+            }
         ],
         columnDefs: [
             { targets: 3, type: 'ipaddr' },
-            { targets: 6, orderable: false }
-        ],
-        createdRow: function (row, data) {
-            var s = $('td:eq(4)', row).text().trim().toLowerCase();
-            if (s === 'offline') $(row).addClass('table-danger');
-            if (s === 'unknown') $(row).addClass('table-secondary');
-            if (s === 'reserved') $(row).addClass('table-warning');
-        }
+            { targets: 8, orderable: false }
+        ]
     });
 
-    // Povezivanje našeg globalnog pretraživanja s tablicom
+    // Brzi ping direktno iz tablice
+    $('#devicesTable').on('click', '.btn-ping', function() {
+        const $btn = $(this);
+        const deviceId = $btn.data('id');
+        const $row = $btn.closest('tr');
+        const $statusCell = $row.find('.status-col');
+        const $lastSeenCell = $row.find('.last-seen-col');
+
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+        fetch(`/devices/${deviceId}/ping`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                let statusHtml = '';
+                if (data.status === 'active') {
+                    statusHtml = '<span class="ping-pulse"></span> <span class="badge bg-success">Aktivan</span>';
+                } else {
+                    statusHtml = '<span class="badge bg-danger">Isključen</span>';
+                }
+                
+                $statusCell.html(statusHtml);
+                $lastSeenCell.text(data.last_seen);
+                $btn.prop('disabled', false).html('<i class="bi bi-lightning-fill"></i>');
+                
+                table.row($row).invalidate().draw(false);
+            })
+            .catch(err => {
+                console.error('Ping neuspješan:', err);
+                $btn.prop('disabled', false).html('<i class="bi bi-lightning-fill"></i>');
+            });
+    });
+
     $('#globalSearch').on('keyup change', function () {
         table.search(this.value).draw();
     });

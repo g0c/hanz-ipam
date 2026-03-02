@@ -10,6 +10,7 @@ from app.core.models import User
 from app.core.security import verify_password, create_access_token
 from app.core.config import settings
 from app.api.dependencies import get_current_user
+from app.core.ui import templates
 
 router = APIRouter(tags=["auth"])
 
@@ -24,10 +25,8 @@ def get_db():
 # Prikazuje HTML formu za prijavu korisnika
 @router.get("/login")
 def login_form(request: Request):
-    from fastapi.templating import Jinja2Templates
-    templates = Jinja2Templates(directory="app/templates")
     return templates.TemplateResponse("login.html", {"request": request, "title": "Prijava"})
-
+    
 # Obrađuje POST zahtjev s forme, provjerava ispravnost lozinke i postavlja JWT token u kolačić
 @router.post("/login")
 def login(username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):

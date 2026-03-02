@@ -1,25 +1,18 @@
-# v1.1.11
-import urllib.parse
+# v1.1.12
 from fastapi import FastAPI, Depends, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.api import auth, devices, subnets
 from app.api.dependencies import get_current_user, get_db
 from app.core.models import User, Device, Subnet
+from app.core.ui import templates  # Uvoz centralnog objekta
 
 app = FastAPI(title="IPAM")
 
-# Montiranje statike
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.mount("/scripts", StaticFiles(directory="app/scripts"), name="scripts")
 
-# Inicijalizacija i registracija filtera za hrvatska slova
-templates = Jinja2Templates(directory="app/templates")
-templates.env.filters["unquote"] = urllib.parse.unquote
-
-# Registracija ruter-a
 app.include_router(auth.router, prefix="/auth")
 app.include_router(devices.router, prefix="/devices")
 app.include_router(subnets.router, prefix="/subnets")

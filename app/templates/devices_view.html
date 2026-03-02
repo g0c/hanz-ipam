@@ -2,111 +2,193 @@
 {% block content %}
 
 <div class="row justify-content-center mt-4">
-  <div class="col-md-10">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3><i class="bi bi-hdd-network"></i> Detalji uređaja: {{ dev.hostname or dev.ip_addr }}</h3>
-      <div>
-        <a href="/devices" class="btn btn-outline-secondary">
-          <i class="bi bi-arrow-left"></i> Natrag na listu
-        </a>
-        <a href="/devices/{{ dev.id }}/edit" class="btn btn-primary ms-2">
-          <i class="bi bi-pencil"></i> Uredi
-        </a>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col-md-6 mb-4">
-        <div class="card h-100 shadow-sm">
-          <div class="card-header bg-dark text-white fw-bold">Mrežne informacije</div>
-          <div class="card-body">
-            <table class="table table-borderless mb-0">
-              <tr>
-                <th style="width: 40%">IP adresa:</th>
-                <td class="font-monospace fw-bold text-primary">{{ dev.ip_addr }}</td>
-              </tr>
-              <tr>
-                <th>Hostname:</th>
-                <td>{{ dev.hostname or '<span class="text-muted">Nije definirano</span>' | safe }}</td>
-              </tr>
-              <tr>
-                <th>MAC adresa:</th>
-                <td class="font-monospace">{{ dev.mac or '-' }}</td>
-              </tr>
-              <tr>
-                <th>Status:</th>
-                <td>
-                  {% if dev.status.value == 'active' %}
-                    <span class="badge bg-success">Active</span>
-                  {% elif dev.status.value == 'offline' %}
-                    <span class="badge bg-danger">Offline</span>
-                  {% elif dev.status.value == 'reserved' %}
-                    <span class="badge bg-warning text-dark">Reserved</span>
-                  {% else %}
-                    <span class="badge bg-secondary">Unknown</span>
-                  {% endif %}
-                </td>
-              </tr>
-            </table>
-          </div>
+    <div class="col-md-10">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h3 class="mb-1"><i class="bi bi-hdd-network text-primary me-2"></i>{{ dev.hostname or dev.ip_addr }}</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="/devices" class="text-decoration-none">Uređaji</a></li>
+                        <li class="breadcrumb-item active">{{ dev.ip_addr }}</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="btn-group shadow-sm">
+                <button id="pingBtn" class="btn btn-warning fw-bold text-dark">
+                    <i class="bi bi-broadcast me-1"></i> <span id="pingBtnText">Pingaj odmah</span>
+                    <span id="pingSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                </button>
+                <a href="/devices/{{ dev.id }}/edit" class="btn btn-primary">
+                    <i class="bi bi-pencil me-1"></i> Uredi
+                </a>
+                <a href="/devices" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Natrag
+                </a>
+            </div>
         </div>
-      </div>
 
-      <div class="col-md-6 mb-4">
-        <div class="card h-100 shadow-sm">
-          <div class="card-header bg-secondary text-white fw-bold">Lokacija i Povijest</div>
-          <div class="card-body">
-            <table class="table table-borderless mb-0">
-              <tr>
-                <th style="width: 40%">Lokacija:</th>
-                <td>{{ dev.location or '-' }}</td>
-              </tr>
-              <tr>
-                <th>Vlasnik/Vendor:</th>
-                <td>{{ dev.vendor or '-' }}</td>
-              </tr>
-              <tr>
-                <th>Dodan u sustav:</th>
-                <td class="small">{{ dev.created_at.strftime("%Y-%m-%d %H:%M:%S") if dev.created_at else "-" }}</td>
-              </tr>
-              <tr>
-                <th>Zadnji put viđen:</th>
-                <td class="small fw-bold {{ 'text-success' if dev.last_seen else 'text-muted' }}">
-                  {{ dev.last_seen.strftime("%Y-%m-%d %H:%M:%S") if dev.last_seen else "Nikada (Waiting for Discovery...)" }}
-                </td>
-              </tr>
-            </table>
-          </div>
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-dark text-white fw-bold py-3">
+                        <i class="bi bi-globe me-2"></i>Mrežne informacije
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-hover mb-0">
+                            <tr>
+                                <th class="text-muted border-0" style="width: 40%">IP adresa:</th>
+                                <td class="font-monospace fw-bold text-primary border-0">{{ dev.ip_addr }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Hostname:</th>
+                                <td class="fw-bold">{{ dev.hostname or '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Mrežni segment:</th>
+                                <td>
+                                    {% if dev.subnet %}
+                                        <a href="/subnets/{{ dev.subnet_id }}" class="text-decoration-none">
+                                            <i class="bi bi-layers-half me-1"></i>{{ dev.subnet.name or dev.subnet.cidr }}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Status:</th>
+                                <td id="statusCell">
+                                    {% if dev.status.value == 'active' %}
+                                        <span class="badge bg-success">Aktivan</span>
+                                    {% elif dev.status.value == 'offline' %}
+                                        <span class="badge bg-danger">Isključen</span>
+                                    {% elif dev.status.value == 'reserved' %}
+                                        <span class="badge bg-warning text-dark">Rezerviran</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Nepoznato</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-secondary text-white fw-bold py-3">
+                        <i class="bi bi-info-circle me-2"></i>Tehnički detalji
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-hover mb-0">
+                            <tr>
+                                <th class="text-muted border-0" style="width: 40%">Tip uređaja:</th>
+                                <td class="border-0">{{ dev.device_type or '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Okruženje:</th>
+                                <td>
+                                    <span class="badge {% if dev.environment == 'PROD' %}bg-danger{% elif dev.environment == 'TEST' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">
+                                        {{ dev.environment or '-' }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">MAC adresa:</th>
+                                <td class="font-monospace small">{{ dev.mac or '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Lokacija:</th>
+                                <td>{{ dev.location or '-' }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-light fw-bold py-3">
+                        <i class="bi bi-chat-left-text me-2"></i>Opis i napomene
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-0 text-dark" style="white-space: pre-wrap;">{{ dev.description or 'Nema opisa za ovaj uređaj.' }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body py-3 bg-light rounded shadow-inner">
+                        <div class="row text-center">
+                            <div class="col-md-3 border-end">
+                                <small class="text-muted d-block uppercase">Zadnji put viđen</small>
+                                <span id="lastSeenCell" class="fw-bold">{{ dev.last_seen.strftime("%d.%m.%Y. %H:%M:%S") if dev.last_seen else "Nikada" }}</span>
+                            </div>
+                            <div class="col-md-3 border-end">
+                                <small class="text-muted d-block uppercase">Dodan u bazu</small>
+                                <span class="fw-bold">{{ dev.created_at.strftime("%d.%m.%Y.") }}</span>
+                            </div>
+                            <div class="col-md-3 border-end">
+                                <small class="text-muted d-block uppercase">Unio (Autor)</small>
+                                <span class="fw-bold text-primary">{{ dev.created_by or '-' }}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted d-block uppercase">Zadnja izmjena</small>
+                                <span class="fw-bold">{{ dev.updated_by or '-' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
-
-    <div class="row">
-      <div class="col-12 mb-4">
-        <div class="card shadow-sm">
-          <div class="card-header fw-bold">Opis / Bilješke</div>
-          <div class="card-body bg-light">
-            <p class="card-text">
-              {{ dev.description or '<span class="text-muted italic">Nema unesenih komentara za ovaj uređaj.</span>' | safe }}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card border-danger mb-5">
-      <div class="card-body d-flex justify-content-between align-items-center">
-        <div>
-          <h5 class="text-danger mb-0">Opasna zona</h5>
-          <small class="text-muted">Trajno uklanjanje uređaja iz IPAM baze.</small>
-        </div>
-        <form action="/devices/{{ dev.id }}/delete" method="post" onsubmit="return confirm('Jeste li sigurni da želite obrisati ovaj uređaj?');">
-          <button type="submit" class="btn btn-outline-danger px-4">Obriši uređaj</button>
-        </form>
-      </div>
-    </div>
-
-  </div>
 </div>
+
+<script>
+$(document).ready(function() {
+    $('#pingBtn').on('click', function() {
+        const $btn = $(this);
+        const $text = $('#pingBtnText');
+        const $spinner = $('#pingSpinner');
+        
+        $btn.prop('disabled', true);
+        $text.text('Provjera...');
+        $spinner.removeClass('d-none');
+
+        fetch('/devices/{{ dev.id }}/ping', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                let badgeClass = '';
+                let statusName = '';
+                
+                // Mapiranje statusa na hrvatski
+                if (data.status === 'active') {
+                    badgeClass = 'bg-success';
+                    statusName = 'Aktivan';
+                } else if (data.status === 'offline') {
+                    badgeClass = 'bg-danger';
+                    statusName = 'Isključen';
+                } else {
+                    badgeClass = 'bg-secondary';
+                    statusName = 'Nepoznato';
+                }
+
+                $('#statusCell').html(`<span class="badge ${badgeClass}">${statusName}</span>`);
+                $('#lastSeenCell').text(data.last_seen);
+                
+                $btn.prop('disabled', false);
+                $text.text('Pingaj odmah');
+                $spinner.addClass('d-none');
+            })
+            .catch(error => {
+                alert('Greška prilikom izvršavanja ping naredbe!');
+                $btn.prop('disabled', false);
+                $text.text('Pingaj odmah');
+                $spinner.addClass('d-none');
+            });
+    });
+});
+</script>
 
 {% endblock %}

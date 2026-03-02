@@ -1,12 +1,26 @@
+# v1.0.4
+# Konfiguracija aplikacije - IPAM projekt.
+
 import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
+    # Naziv aplikacije
     APP_NAME: str = "IPAM"
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me")
+    
+    # Tajni ključ za JWT - koristimo IPAM_ prefiks
+    SECRET_KEY: str = os.getenv("IPAM_SECRET_KEY", "super-tajni-kljuc-promijeni-me")
+    
+    # Algoritam za enkripciju
     JWT_ALGO: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-    REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "mysql+mysqlconnector://ipam:password@localhost/ipam")
+    
+    # Trajanje tokena (7 dana = 10080 minuta)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("IPAM_TOKEN_EXPIRE", "10080"))
+    
+    # URL baze podataka
+    DATABASE_URL: str = os.getenv("IPAM_DATABASE_URL", "mysql+mysqlconnector://ipam:password@localhost/ipam")
+    
+    # OpenAI API ključ (uvijek bez prefiksa prema tvojem pravilu)
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
 settings = Settings()

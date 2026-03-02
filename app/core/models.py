@@ -1,4 +1,4 @@
-# v1.0.4
+# v1.0.5
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, BigInteger, Text
 from datetime import datetime
@@ -27,16 +27,18 @@ class User(Base):
     
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
 
-# Model mrežnog segmenta (Subnet)
+# Model mrežnog segmenta (Subnet) - DODANI STUPCI name I vlan_id
 class Subnet(Base):
     __tablename__ = "subnets"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    cidr = Column(String(32), nullable=True)
+    cidr = Column(String(32), nullable=False)
+    name = Column(String(128), nullable=True)     # Naziv mreže (npr. Produkcija)
+    vlan_id = Column(Integer, nullable=True)     # VLAN ID (npr. 100)
     description = Column(String(255), nullable=True)
     
     devices = relationship("Device", back_populates="subnet")
 
-# Glavni model mrežnog uređaja (proširen za Discovery i AD planove)
+# Glavni model mrežnog uređaja
 class Device(Base):
     __tablename__ = "devices"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -46,7 +48,6 @@ class Device(Base):
     vendor = Column(String(128), nullable=True)
     status = Column(Enum(DeviceStatus), default=DeviceStatus.unknown)
     
-    # Text tip omogućuje spremanje većih blokova teksta (komentara)
     description = Column(Text, nullable=True)
     location = Column(String(255), nullable=True)
     
@@ -55,6 +56,11 @@ class Device(Base):
     
     subnet_id = Column(Integer, ForeignKey("subnets.id", ondelete="SET NULL"), nullable=True)
     subnet = relationship("Subnet", back_populates="devices")
+
+    environment = Column(String(50), nullable=True) # PROD, TEST, DEV
+    device_type = Column(String(50), nullable=True) # Server, VM, Network...
+    created_by = Column(String(64), nullable=True)
+    updated_by = Column(String(64), nullable=True)
 
 # Model korisničke sesije
 class Session(Base):

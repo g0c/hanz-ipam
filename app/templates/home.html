@@ -1,17 +1,74 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="row mt-5">
-  <div class="col-md-12 text-center">
-    <h2>Dobrodošli u IPAM Nadzornu ploču</h2>
-    <p class="lead">Pozdrav, {{ user.username }}! Uspješno ste prijavljeni.</p>
-    <hr class="my-4">
-    <p>Koristite navigaciju ispod za upravljanje vašim IP adresama i uređajima.</p>
-    <div class="mt-4">
-      <a class="btn btn-primary btn-lg" href="/devices" role="button">Pregled uređaja</a>
-      <a class="btn btn-danger btn-lg ms-2" href="/auth/logout" role="button">Odjava</a>
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="fw-bold text-dark"><i class="bi bi-speedometer2 me-2 text-primary"></i>Upravljačka ploča</h2>
+        <p class="text-muted">Pregled mrežne infrastrukture i resursa u realnom vremenu.</p>
     </div>
-  </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm border-start border-primary border-4 h-100">
+            <div class="card-body py-4 text-center position-relative">
+                <i class="bi bi-cpu fs-1 text-primary mb-2 d-block"></i>
+                <h6 class="text-uppercase fw-bold text-muted mb-1 small">Ukupno uređaja</h6>
+                <h2 class="mb-0 fw-bold">{{ device_count }}</h2>
+                <p class="text-muted small mb-0">Registrirani mrežni resursi</p>
+                <a href="/devices" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm border-start border-success border-4 h-100">
+            <div class="card-body py-4 text-center position-relative">
+                <i class="bi bi-layers-half fs-1 text-success mb-2 d-block"></i>
+                <h6 class="text-uppercase fw-bold text-muted mb-1 small">Aktivne podmreže</h6>
+                <h2 class="mb-0 fw-bold">{{ subnet_count }}</h2>
+                <p class="text-muted small mb-0">Definirani mrežni segmenti</p>
+                <a href="/subnets" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-12 col-lg-4">
+        <div class="card bg-dark text-white border-0 shadow-sm h-100">
+            <div class="card-body d-flex flex-column justify-content-center py-4">
+                <h6 class="text-uppercase fw-bold text-white-50 mb-3 small text-center">Brze akcije</h6>
+                <div class="d-grid gap-2 px-3">
+                    <a href="/devices/add" class="btn btn-primary btn-sm shadow-sm py-2 fw-bold">
+                        <i class="bi bi-plus-lg me-2"></i> Novi uređaj
+                    </a>
+                    <a href="/subnets" class="btn btn-outline-light btn-sm py-2">
+                        <i class="bi bi-grid-3x3-gap me-2"></i> Pregled IP mape
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-4 overflow-hidden">
+    <div class="card-header bg-white py-3">
+        <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-info-circle me-2 text-info"></i>Status sustava</h5>
+    </div>
+    <div class="card-body bg-light-subtle">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <p class="mb-0 fs-5">
+                    Sustav trenutno aktivno prati <strong>{{ device_count }}</strong> uređaja raspoređenih kroz 
+                    <strong>{{ subnet_count }}</strong> mrežna segmenta.
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <span class="badge bg-success-subtle text-success border border-success px-3 py-2">
+                    <i class="bi bi-shield-check me-1"></i> Svi moduli su aktivni
+                </span>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
