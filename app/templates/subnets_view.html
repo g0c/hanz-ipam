@@ -3,86 +3,134 @@
 
 <div class="row justify-content-center mt-4">
     <div class="col-md-12">
-        
         <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white rounded shadow-sm border-start border-4 border-primary">
             <div>
                 <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb mb-1">
-                        <li class="breadcrumb-item"><a href="/subnets" class="text-decoration-none">Podmreže</a></li>
+                    <ol class="breadcrumb mb-1 small text-uppercase fw-bold">
+                        <li class="breadcrumb-item"><a href="/subnets" class="text-decoration-none">Subnets</a></li>
                         <li class="breadcrumb-item active">{{ data.subnet.cidr }}</li>
                     </ol>
                 </nav>
                 <h3 class="fw-bold mb-0">
-                    <i class="bi bi-layers-half text-primary me-2"></i>{{ data.subnet.name or 'Segment' }}
-                    <span class="badge bg-dark ms-2 fs-6">{{ data.subnet.cidr }}</span>
+                    <i class="bi bi-layers-half text-primary me-2"></i>{{ data.subnet.name or 'Network Segment' }}
                 </h3>
             </div>
-            
             <div class="d-flex gap-2">
-                <form action="/subnets/{{ data.subnet.id }}/scan" method="post" id="scanForm">
-                    <button type="submit" id="scanBtn" class="btn btn-warning fw-bold shadow-sm">
-                        <i class="bi bi-radar me-1" id="radarIcon"></i>
-                        <span id="scanBtnText">Skeniraj mrežu</span>
-                        <span id="scanSpinner" class="spinner-border spinner-border-sm d-none"></span>
-                    </button>
-                </form>
-                <a href="/subnets/{{ data.subnet.id }}/edit" class="btn btn-outline-primary"><i class="bi bi-pencil"></i></a>
-                <a href="/subnets" class="btn btn-outline-secondary">Natrag</a>
+                <button onclick="startLiveScan()" id="scanBtn" class="btn btn-warning fw-bold shadow-sm">
+                    <i class="bi bi-radar me-1" id="radarIcon"></i>
+                    <span id="scanBtnText">Run Live Scan</span>
+                </button>
+                <a href="/subnets" class="btn btn-outline-secondary">Back</a>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-                <span class="fw-bold"><i class="bi bi-grid-3x3-gap me-2"></i>Visual IP Map</span>
-                <div class="d-flex gap-3 small">
-                    <span><i class="bi bi-square-fill text-success me-1"></i>Zauzeto</span>
-                    <span><i class="bi bi-square-fill text-info me-1"></i>Rezervirano</span>
-                    <span><i class="bi bi-square me-1 text-muted"></i>Slobodno</span>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-grid-3x3-gap me-2"></i>Visual IP Map</span>
+                <div class="d-flex gap-2 small">
+                    <span class="badge bg-success">Active</span>
+                    <span class="badge bg-light text-dark border">Free</span>
+                    <span class="badge bg-info">Reserved</span>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="ip-grid">
+            <div class="card-body bg-light">
+                <div class="ip-grid" id="ipGridContainer">
                     {% for item in data.map %}
-                    <div class="ip-box-wrapper" data-bs-toggle="tooltip" data-bs-placement="top" 
-                         title="{{ item.ip }}{% if item.device %} ({{ item.device.hostname }}){% endif %}">
-                        
-                        {% if item.is_used %}
-                            <a href="/devices/{{ item.device.id }}" class="ip-box ip-used">
-                                {{ item.ip.split('.')[-1] }}
-                            </a>
-                        {% elif item.type != 'host' %}
-                            <div class="ip-box ip-reserved">
-                                {{ item.ip.split('.')[-1] }}
-                            </div>
-                        {% else %}
-                            <a href="/devices/add?ip={{ item.ip }}&subnet_id={{ data.subnet.id }}" class="ip-box ip-free">
-                                {{ item.ip.split('.')[-1] }}
-                            </a>
-                        {% endif %}
+                    <div class="ip-box-wrapper" data-bs-toggle="tooltip" title="{{ item.ip }}">
+                        <div class="ip-box {% if item.is_used %}ip-used{% elif item.type != 'host' %}ip-reserved{% else %}ip-free{% endif %}" 
+                             id="ip-{{ item.ip | replace('.', '-') }}">
+                            {{ item.ip.split('.')[-1] }}
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
         </div>
+
+        <div class="card border-0 shadow-sm bg-black text-light overflow-hidden" id="terminalCard" style="display: none;">
+            <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center py-2">
+                <span class="small fw-bold text-success font-monospace">GOC1_DISCOVERY_LOG</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-danger pulse-dot" id="liveBadge">LIVE SCANNING</span>
+                </div>
+            </div>
+            <div class="card-body font-monospace p-3" id="scanTerminal" 
+                 style="height: 300px; overflow-y: auto; font-size: 0.85rem; color: #00ff41; background: #0c0c0c; line-height: 1.4;">
+                <div>> System ready. Awaiting trigger...</div>
+            </div>
+        </div>
     </div>
 </div>
 
-<script>
-$(document).ready(function() {
-    // Aktiviraj tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (el) {
-        return new bootstrap.Tooltip(el)
-    });
 
-    // Scan animacija
-    $('#scanForm').on('submit', function() {
-        $('#scanBtn').addClass('disabled').prop('disabled', true);
-        $('#radarIcon').addClass('radar-active');
-        $('#scanBtnText').text('Skeniranje...');
-        $('#scanSpinner').removeClass('d-none');
-    });
-});
+
+<script>
+let socket;
+
+function startLiveScan() {
+    const $btn = $('#scanBtn');
+    const $terminal = $('#terminalCard');
+    const $console = $('#scanTerminal');
+    const subnetId = "{{ data.subnet.id }}";
+    
+    // UI Reset & Setup
+    $btn.addClass('disabled').prop('disabled', true);
+    $('#radarIcon').addClass('radar-active');
+    $terminal.slideDown();
+    $console.html("<div><span class='text-primary'>[SYS]</span> Establishing WebSocket connection...</div>");
+
+    // Dynamic WS Protocol detection
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    
+    // Spajanje na endpoint
+    socket = new WebSocket(`${protocol}//${host}/ws/scan/${subnetId}`);
+
+    socket.onmessage = function(event) {
+        const rawData = event.data;
+        const timestamp = new Date().toLocaleTimeString();
+        const line = `<div><span class="text-muted">[${timestamp}]</span> ${rawData}</div>`;
+        
+        $console.append(line);
+        $console.scrollTop($console[0].scrollHeight);
+
+        // --- AUTOMATSKO BOJANJE KOCKICA ---
+        // Tražimo IP adresu u poruci pomoću Regexa
+        const ipMatch = rawData.match(/\d+\.\d+\.\d+\.\d+/);
+        
+        if (ipMatch) {
+            const ip = ipMatch[0];
+            const elementId = `ip-${ip.replaceAll('.', '-')}`;
+            const $box = $(`#${elementId}`);
+
+            if (rawData.includes('[FOUND]')) {
+                // Ako je host pronađen, a kockica je bila siva (free)
+                if ($box.hasClass('ip-free')) {
+                    $box.removeClass('ip-free').addClass('ip-used update-glow');
+                    // Makni glow efekt nakon 2 sekunde
+                    setTimeout(() => $box.removeClass('update-glow'), 2000);
+                }
+            } else if (rawData.includes('[SKIP]')) {
+                // Ako host ne odgovara, a bio je zelen, vrati ga u sivo (opcionalno, ovisi o tvojoj politici)
+                if ($box.hasClass('ip-used')) {
+                    $box.removeClass('ip-used').addClass('ip-free');
+                }
+            }
+        }
+    };
+
+    socket.onclose = function() {
+        $console.append("<div class='text-warning mt-2'>> [INFO] Scan complete. Map synchronized.</div>");
+        $btn.removeClass('disabled').prop('disabled', false);
+        $('#radarIcon').removeClass('radar-active');
+        $('#liveBadge').removeClass('bg-danger').addClass('bg-secondary').text('IDLE');
+    };
+
+    socket.onerror = function() {
+        $console.append("<div class='text-danger'>> [ERROR] Connection lost or refused.</div>");
+        $btn.removeClass('disabled').prop('disabled', false);
+    };
+}
 </script>
 
 {% endblock %}
