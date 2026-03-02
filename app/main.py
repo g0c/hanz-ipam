@@ -1,6 +1,4 @@
-# v1.1.9
-# Glavna datoteka aplikacije - rješava rute, statiku i početni prikaz.
-
+# v1.1.11
 import urllib.parse
 from fastapi import FastAPI, Depends, Request
 from fastapi.staticfiles import StaticFiles
@@ -13,29 +11,21 @@ from app.core.models import User, Device, Subnet
 
 app = FastAPI(title="IPAM")
 
-# Montiranje statičkih datoteka iz app foldera
+# Montiranje statike
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.mount("/scripts", StaticFiles(directory="app/scripts"), name="scripts")
 
+# Inicijalizacija i registracija filtera za hrvatska slova
 templates = Jinja2Templates(directory="app/templates")
+templates.env.filters["unquote"] = urllib.parse.unquote
 
-# Funkcija za čitanje i dekodiranje flash poruka (pretvara %C5%A1 natrag u 'š')
-def get_flash_message(request: Request):
-    flash = request.cookies.get("flash")
-    return urllib.parse.unquote(flash) if flash else None
-
-# Registracija globalne funkcije kako bi bila dostupna u svim Jinja2 predlošcima
-templates.env.globals["get_flash"] = get_flash_message
-
-# Registracija svih routera
+# Registracija ruter-a
 app.include_router(auth.router, prefix="/auth")
 app.include_router(devices.router, prefix="/devices")
 app.include_router(subnets.router, prefix="/subnets")
 
-# Početna stranica nadzorne ploče s brojačima
 @app.get("/")
 def home(request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    # Dohvaćanje statistike za dashboard
     device_count = db.query(Device).count()
     subnet_count = db.query(Subnet).count()
     

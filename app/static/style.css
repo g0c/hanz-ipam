@@ -1,10 +1,10 @@
-/* ===========================================================
+/* v1.0.1
+   ===========================================================
    ENTERPRISE IPAM UI THEME (Bootstrap 5 Compatible)
    Author: Goran + IPAM AI Assistant
    =========================================================== */
 
 /* GLOBAL -------------------------------------------------- */
-
 body {
     background: #f4f6f9;
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -21,7 +21,6 @@ body {
 }
 
 /* TABLES -------------------------------------------------- */
-
 table.dataTable {
     border-radius: 8px !important;
     overflow: hidden;
@@ -44,20 +43,17 @@ table.dataTable tbody tr:hover {
     background: #f0f7ff !important;
 }
 
-.table-danger {
-    background: #ffe7e7 !important;
-}
+/* STATUS & ENVIRONMENT COLORS ------------------------------ */
+.table-danger { background: #ffe7e7 !important; }
+.table-warning { background: #fff5da !important; }
+.table-secondary { background: #efefef !important; }
 
-.table-warning {
-    background: #fff5da !important;
-}
-
-.table-secondary {
-    background: #efefef !important;
-}
+/* Okruženja (za prikaze u tablicama i badge-ovima) */
+.env-prod { color: #c0392b; font-weight: bold; border-left: 4px solid #c0392b; padding-left: 8px; }
+.env-test { color: #f39c12; font-weight: bold; border-left: 4px solid #f39c12; padding-left: 8px; }
+.env-dev { color: #7f8c8d; font-weight: bold; border-left: 4px solid #7f8c8d; padding-left: 8px; }
 
 /* DataTables: Pagination, search, buttons ------------------ */
-
 .dataTables_wrapper .dataTables_paginate .paginate_button {
     padding: 4px 12px;
     margin: 2px;
@@ -84,8 +80,7 @@ table.dataTable tbody tr:hover {
     padding: 3px;
 }
 
-/* BUTTONS: CSV, Excel, PDF, Print, ColVis ------------------ */
-
+/* BUTTONS -------------------------------------------------- */
 .dt-buttons .btn {
     margin-right: 6px;
     border-radius: 6px !important;
@@ -98,35 +93,22 @@ table.dataTable tbody tr:hover {
 }
 
 /* BADGES (STATUS) ------------------------------------------ */
-
 .badge {
     font-size: 0.85rem;
     padding: 6px 10px;
     border-radius: 6px;
 }
 
-.badge.bg-success {
-    background: #27ae60 !important;
-}
-
-.badge.bg-danger {
-    background: #c0392b !important;
-}
-
-.badge.bg-warning {
-    background: #f39c12 !important;
-    color: #000 !important;
-}
-
-.badge.bg-secondary {
-    background: #7f8c8d !important;
-}
+.badge.bg-success { background: #27ae60 !important; }
+.badge.bg-danger { background: #c0392b !important; }
+.badge.bg-warning { background: #f39c12 !important; color: #000 !important; }
+.badge.bg-secondary { background: #7f8c8d !important; }
 
 /* CARDS, PANELS -------------------------------------------- */
-
 .card {
-    border-radius: 8px;
+    border-radius: 10px;
     border: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .card-header {
@@ -135,8 +117,7 @@ table.dataTable tbody tr:hover {
     border-bottom: 1px solid #1a252f;
 }
 
-/* FORMS ---------------------------------------------------- */
-
+/* FORMS & VALIDATION --------------------------------------- */
 form .form-control, 
 form .form-select {
     border-radius: 6px !important;
@@ -153,37 +134,115 @@ form .btn-primary:hover {
     background: #1a252f !important;
 }
 
-/* FLASH ALERTS --------------------------------------------- */
-
-.alert {
-    border-radius: 6px;
-    font-weight: 500;
+/* IP Validation Glows */
+.is-valid { 
+    border-color: #198754 !important; 
+    box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25) !important; 
+}
+.is-invalid { 
+    border-color: #dc3545 !important; 
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important; 
 }
 
-/* RESPONSIVE ------------------------------------------------*/
+/* FLASH ALERTS & AUDIT ------------------------------------- */
+.alert { border-radius: 6px; font-weight: 500; }
+.audit-info { font-size: 0.85rem; color: #6c757d; font-style: italic; }
 
-@media (max-width: 768px) {
-    .container {
-        padding: 0 8px;
-    }
-    .dt-buttons {
-        margin-bottom: 10px;
-        display: flex;
-        flex-wrap: wrap;
-    }
-}
-
-/* CUSTOM SCROLLBAR ------------------------------------------ */
-
-::-webkit-scrollbar {
+/* LIVE PING PULSE ANIMATION -------------------------------- */
+.ping-pulse {
+    display: inline-block;
     width: 10px;
-}
-::-webkit-scrollbar-thumb {
-    background: #aaa;
-    border-radius: 5px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #888;
+    height: 10px;
+    border-radius: 50%;
+    background: #27ae60;
+    margin-right: 5px;
+    box-shadow: 0 0 0 rgba(39, 174, 96, 0.4);
+    animation: pulse 2s infinite;
 }
 
-/* END ------------------------------------------------------- */
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(39, 174, 96, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0); }
+}
+
+/* RESPONSIVE & SCROLLBAR ----------------------------------- */
+@media (max-width: 768px) {
+    .container { padding: 0 8px; }
+    .dt-buttons { margin-bottom: 10px; display: flex; flex-wrap: wrap; }
+}
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-thumb { background: #aaa; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: #888; }
+
+
+/* v1.0.2 - IP Grid Styles */
+.ip-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 6px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+}
+
+.ip-box {
+    aspect-ratio: 1 / 1;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.ip-box-free {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.ip-box-free:hover {
+    background-color: #2e7d32;
+    color: white;
+    transform: scale(1.15);
+    z-index: 10;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.ip-box-used {
+    background-color: #ffebee;
+    color: #c62828;
+    border: 1px solid #ffcdd2;
+}
+
+.ip-box-used:hover {
+    background-color: #c62828;
+    color: white;
+    transform: scale(1.15);
+    z-index: 10;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.ip-legend-box {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+}
+
+/* Popravak za dropdown izbornike unutar tablica */
+.table-responsive {
+    overflow: visible !important;
+}
+
+/* Osiguraj da grid mape ne puca zbog gornjeg fixa */
+.ip-grid-container {
+    overflow-x: auto;
+}
