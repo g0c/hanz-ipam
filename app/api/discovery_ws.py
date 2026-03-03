@@ -1,5 +1,6 @@
-# v1.0.2
+# v1.0.3
 # WebSocket ruter za live streaming mrežnog skeniranja u realnom vremenu.
+# Uključuje asinkrono prebacivanje sinkronih zadataka u threadove kako bi se spriječilo blokiranje.
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
@@ -12,12 +13,10 @@ from app.core.models import Subnet
 
 router = APIRouter()
 
+# WebSocket endpoint za praćenje skeniranja uživo. 
+# Prihvaća vezu, iterira kroz IP adrese, pinga ih i sprema aktivne u bazu bez blokiranja loopa.
 @router.websocket("/ws/scan/{subnet_id}")
 async def websocket_endpoint(websocket: WebSocket, subnet_id: int, db: Session = Depends(get_db)):
-    """
-    Endpoint za praćenje skeniranja uživo. 
-    Prvo prihvaćamo vezu, a zatim šaljemo podatke.
-    """
     await websocket.accept()
     
     try:
@@ -38,14 +37,15 @@ async def websocket_endpoint(websocket: WebSocket, subnet_id: int, db: Session =
         await websocket.send_text(f"[*] Target count: {len(hosts)} hosts. Initiating ping sweep...")
 
         for ip in hosts:
-            # Izvršavanje pinga kroz servis
-            is_alive = discovery_service.ping_ip(ip)
+            # Izvršavanje pinga asinkrono kako ne bismo blokirali WebSocket
+            is_alive = await asyncio.to_thread(discovery_service.ping_ip, ip)
             
             if is_alive:
                 # Ako je host živ, odmah ga evidentiramo i javljamo terminalu
                 await websocket.send_text(f"<span class='text-success fw-bold'>[FOUND]</span> {ip} is active.")
-                # Asinkrono ažuriranje baze u pozadini
-                discovery_service.scan_single_ip(db, ip, subnet_id)
+                
+                # Asinkrono pozivanje sinkrone funkcije za spremanje uređaja u bazu
+                await asyncio.to_thread(discovery_service.scan_single_ip, db, ip, subnet_id)
             else:
                 await websocket.send_text(f"<span class='text-muted'>[SKIP]</span>  {ip} no response.")
             
