@@ -17,23 +17,25 @@ router = APIRouter(tags=["devices"])
 
 # --- DOHVAĆANJE DETALJA PREKO IP ADRESE (Za Modal na IP Mapi) ---
 # Ova ruta omogućuje interaktivnoj mapi da povuče podatke čim klikneš na kockicu.
+# v1.1.23
+# Ispravak AttributeError-a: polje u modelu se zove 'mac', a ne 'mac_address'.
+
 @router.get("/details/{ip_addr}")
 def get_device_details_by_ip(ip_addr: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
     # Traženje uređaja u bazi prema IP adresi
     device = db.query(Device).filter(Device.ip_addr == ip_addr).first()
     
     if not device:
-        # Ako uređaj ne postoji u bazi, vraćamo 404 što JS hvata i prikazuje "Free IP"
         raise HTTPException(status_code=404, detail="Uređaj nije pronađen")
     
-    # Vraćanje JSON podataka koje JavaScript očekuje za popunjavanje modala
+    # Vraćanje JSON podataka - ispravljeno mac_address u mac
     return {
         "id": device.id,
         "ip": device.ip_addr,
         "hostname": device.hostname,
         "status": device.status.value if hasattr(device.status, 'value') else str(device.status),
-        "mac_address": device.mac_address,
-        "last_seen": device.last_seen.strftime("%Y-%m-%d %H:%M:%S") if device.last_seen else "Never"
+        "mac_address": getattr(device, 'mac', 'Nepoznato'), # Sigurnije dohvaćanje polja 'mac'
+        "last_seen": device.last_seen.strftime("%Y-%m-%d %H:%M:%S") if hasattr(device, 'last_seen') and device.last_seen else "Nikada"
     }
 
 # --- LISTA UREĐAJA ---

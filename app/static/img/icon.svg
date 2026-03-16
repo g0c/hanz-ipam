@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>IPAM Network Icon</title>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="IPAM-Icon" transform="translate(4.000000, 4.000000)">
+            <rect id="Node-TL" fill="#E0E0E0" x="0" y="0" width="16" height="16" rx="4"></rect>
+            <rect id="Node-TR" fill="#E0E0E0" x="40" y="0" width="16" height="16" rx="4"></rect>
+            <rect id="Node-BL" fill="#E0E0E0" x="0" y="40" width="16" height="16" rx="4"></rect>
+            
+            <path d="M16,8 L40,8" id="Line-H" stroke="#BCBCBC" stroke-width="4" stroke-linecap="round"></path>
+            <path d="M8,16 L8,40" id="Line-V" stroke="#BCBCBC" stroke-width="4" stroke-linecap="round"></path>
+            
+            <rect id="Node-BR-Active" fill="#0d6efd" x="36" y="36" width="24" height="24" rx="6"></rect>
+            
+            <rect id="IP-Dot-1" fill="#FFFFFF" x="42" y="42" width="4" height="4" rx="2"></rect>
+            <rect id="IP-Dot-2" fill="#FFFFFF" x="50" y="42" width="4" height="4" rx="2"></rect>
+            <rect id="IP-Dot-3" fill="#FFFFFF" x="42" y="50" width="4" height="4" rx="2"></rect>
+        </g>
+    </g>
+</svg>

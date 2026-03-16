@@ -18,38 +18,42 @@
             <div class="d-flex gap-2">
                 <button onclick="startLiveScan()" id="scanBtn" class="btn btn-warning fw-bold shadow-sm">
                     <i class="bi bi-radar me-1" id="radarIcon"></i>
-                    <span id="scanBtnText">Run Live Scan</span>
+                    <span id="scanBtnText">Pokreni skeniranje uživo</span>
                 </button>
-                <a href="/subnets" class="btn btn-outline-secondary">Back</a>
+                <a href="/subnets" class="btn btn-outline-secondary">Natrag</a>
             </div>
         </div>
 
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-grid-3x3-gap me-2"></i>Visual IP Map</span>
+                <span><i class="bi bi-grid-3x3-gap me-2"></i>Vizualni prikaz IP adresa</span>
                 <div class="d-flex gap-2 small">
-                    <span class="badge bg-success">Active</span>
-                    <span class="badge bg-light text-dark border">Free</span>
-                    <span class="badge bg-info">Reserved</span>
+                    <span class="badge bg-success">Aktivna</span>
+                    <span class="badge bg-light text-dark border">Slobodna</span>
+                    <span class="badge bg-info">Rezervirana</span>
                 </div>
             </div>
-            <div class="card-body bg-light">
-                <div class="ip-grid" id="ipGridContainer">
-                    {% for item in data.map %}
-                    <div class="ip-box-wrapper" data-bs-toggle="tooltip" title="{{ item.ip }}">
-                        <div class="ip-box {% if item.is_used %}ip-used{% elif item.type != 'host' %}ip-reserved{% else %}ip-free{% endif %}" 
-                             id="ip-{{ item.ip | replace('.', '-') }}">
-                            {{ item.ip.split('.')[-1] }}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
+            
+<div class="card-body bg-light">
+    <div class="ip-grid" id="ipGridContainer">
+        {% for item in data.map %}
+        <div class="ip-box-wrapper" data-bs-toggle="tooltip" title="{{ item.ip }}{% if item.device_type == 'Gateway' %} (Gateway){% endif %}">
+            <div class="ip-box {% if item.is_used %}ip-used{% elif item.type != 'host' %}ip-reserved{% else %}ip-free{% endif %} {% if item.ip.endswith('.1') %}device-gateway{% endif %} cursor-pointer" 
+                id="ip-{{ item.ip | replace('.', '-') }}"
+                onclick="showDeviceDetails('{{ item.ip }}')">
+                {{ item.ip.split('.')[-1] }}
             </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
         </div>
 
         <div class="card border-0 shadow-sm bg-black text-light overflow-hidden" id="terminalCard" style="display: none;">
             <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center py-2">
-                <span class="small fw-bold text-success font-monospace">GOC1_DISCOVERY_LOG</span>
+                <span class="small fw-bold text-success font-monospace">DISCOVERY_LOG</span>
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge bg-danger pulse-dot" id="liveBadge">LIVE SCANNING</span>
                 </div>
@@ -131,6 +135,109 @@ function startLiveScan() {
         $btn.removeClass('disabled').prop('disabled', false);
     };
 }
+
+// Funkcija za otvaranje modala s detaljima uređaja
+// Funkcija za dohvaćanje i prikaz detalja uređaja u modalu.
+// v1.1.21 - Pametni modal koji nudi registraciju ako uređaj ne postoji
+// v1.1.22 - Popravljen jezik i stabilnost prikaza podataka
+function showDeviceDetails(ip) {
+    const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
+    const $container = $('#modalContent');
+    const $editBtn = $('#editDeviceBtn');
+    
+    modal.show();
+    $container.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Provjera baze podataka...</p></div>');
+
+    fetch(`/devices/details/${ip}`)
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('NOT_FOUND');
+                }
+                throw new Error('Greška na poslužitelju (provjerite backend logove).');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // UREĐAJ PRONAĐEN - Prikazujemo stvarne podatke iz baze
+            let html = `
+                <div class="mb-3">
+                    <label class="small text-uppercase fw-bold text-muted">IP Adresa</label>
+                    <div class="fs-5 fw-bold text-success">${data.ip}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="small text-uppercase fw-bold text-muted">Ime domaćina (Hostname)</label>
+                        <div class="fw-bold text-dark">${data.hostname || 'Nije definirano'}</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="small text-uppercase fw-bold text-muted">Status</label>
+                        <div><span class="badge bg-success">${data.status || 'aktivan'}</span></div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-uppercase fw-bold text-muted">MAC Adresa</label>
+                    <div class="font-monospace text-muted">${data.mac_address || 'Nepoznato'}</div>
+                </div>
+                <div class="mb-0">
+                    <label class="small text-uppercase fw-bold text-muted">Zadnji put viđen</label>
+                    <div class="small text-dark">${data.last_seen || 'Nikada'}</div>
+                </div>
+            `;
+            $container.html(html);
+            
+            // Postavljanje gumba na UREĐIVANJE
+            $editBtn.text('Uredi uređaj').removeClass('btn-success').addClass('btn-primary')
+                .attr('onclick', `window.location.href='/devices/${data.id}/edit'`).show();
+        })
+        .catch(error => {
+            if (error.message === 'NOT_FOUND') {
+                // UREĐAJ NIJE U BAZI - Nudimo registraciju
+                $container.html(`
+                    <div class="text-center py-3">
+                        <i class="bi bi-plus-circle text-warning display-4"></i>
+                        <h5 class="mt-3 fw-bold">Neregistrirani IP</h5>
+                        <p class="text-muted small">Adresa ${ip} je slobodna. Želite li je dodati u bazu?</p>
+                    </div>
+                `);
+                
+                // Postavljanje gumba na REGISTRACIJU
+                $editBtn.text('Registriraj uređaj').removeClass('btn-primary').addClass('btn-success')
+                    .attr('onclick', `window.location.href='/devices/add?ip=${ip}&subnet_id={{ data.subnet.id }}'`).show();
+            } else {
+                // Prikazujemo stvarnu grešku ako nešto pukne na backendu
+                $container.html(`
+                    <div class="alert alert-danger border-0">
+                        <i class="bi bi-exclamation-octagon me-2"></i>
+                        ${error.message}
+                    </div>
+                `);
+                $editBtn.hide();
+            }
+        });
+}
+
 </script>
+
+<div class="modal fade" id="deviceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cpu me-2"></i>Detalji uređaja</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Zatvori"></button>
+            </div>
+            <div class="modal-body p-4" id="modalContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Pozivam API za podatke...</p>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zatvori</button>
+                <button type="button" class="btn btn-primary fw-bold" id="editDeviceBtn">Uredi uređaj</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

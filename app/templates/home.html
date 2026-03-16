@@ -3,7 +3,7 @@
 
 <div class="row mb-4 align-items-center">
     <div class="col">
-        <h2 class="fw-bold text-dark"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>IPAM Analytics</h2>
+        <h2 class="fw-bold text-dark"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>IPAM</h2>
         <p class="text-muted">Analiza mrežnih resursa i statusa infrastrukture.</p>
     </div>
     <div class="col-auto">
@@ -34,7 +34,7 @@
     <div class="col-md-3">
         <div class="card border-0 shadow-sm border-start border-warning border-4">
             <div class="card-body py-3">
-                <small class="text-uppercase fw-bold text-muted small">Online (Live)</small>
+                <small class="text-uppercase fw-bold text-muted small">Živo (Live)</small>
                 <h3 class="mb-0 fw-bold text-success">{{ status_data.get('active', 0) }}</h3>
             </div>
         </div>
@@ -42,11 +42,19 @@
     <div class="col-md-3">
         <div class="card border-0 shadow-sm border-start border-danger border-4">
             <div class="card-body py-3">
-                <small class="text-uppercase fw-bold text-muted small">Offline / Dead</small>
+                <small class="text-uppercase fw-bold text-muted small">Mrtvo / Dead</small>
                 <h3 class="mb-0 fw-bold text-danger">{{ status_data.get('offline', 0) }}</h3>
             </div>
         </div>
     </div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Dashboard</h1>
+    <button id="syncDnsBtn" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-repeat"></i> Sync DNS Records
+    </button>
+</div>
+
 </div>
 
 <div class="row g-4">
@@ -69,19 +77,7 @@
     </div>
 </div>
 
-<div class="card border-0 shadow-sm mt-4">
-    <div class="card-body p-4 bg-dark text-white rounded">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <h5 class="fw-bold mb-1"><i class="bi bi-lightning-charge text-warning me-2"></i>Spreman za Discovery?</h5>
-                <p class="mb-0 text-white-50">Sljedeći korak je aktivacija automatskog skenera koji će samostalno ažurirati ove grafikone.</p>
-            </div>
-            <div class="col-md-4 text-md-end">
-                <span class="badge bg-primary px-3 py-2">Faza 2: In Progress</span>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -127,6 +123,34 @@ $(document).ready(function() {
             plugins: { legend: { display: false } }
         }
     });
+});
+</script>
+
+<script>
+document.getElementById('syncDnsBtn').addEventListener('click', async function() {
+    const btn = this;
+    const originalHtml = btn.innerHTML;
+    
+    // Vizualni feedback - spinner
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Syncing...';
+
+    try {
+        const response = await fetch('/api/sync-dns', { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            alert(data.message);
+            location.reload(); // Osvježi dashboard da vidiš nove brojke
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (error) {
+        alert('Request failed');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
 });
 </script>
 
