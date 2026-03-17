@@ -4,7 +4,7 @@
 <div class="row mb-4 align-items-center">
     <div class="col">
         <h2 class="fw-bold text-dark"><i class="bi bi-hdd-stack-fill me-2 text-primary"></i>Inventar uređaja</h2>
-        <p class="text-muted">Pregled i upravljanje svim mrežnim resursima u realnom vremenu.</p>
+        <p class="text-muted">Pregled i upravljanje svim mrežnim resursima. Uređaji bez dodijeljenog subneta označeni su kao "Unmapped".</p>
     </div>
     <div class="col-auto">
         <div class="btn-group shadow-sm">
@@ -26,7 +26,7 @@
                     <tr>
                         <th class="ps-3">Hostname & MAC</th>
                         <th>IP Adresa</th>
-                        <th>Okruženje</th>
+                        <th>Subnet (Mreža)</th> <th>Okruženje</th>
                         <th>Tip</th>
                         <th class="text-center">Status</th>
                         <th>Zadnji Put Viđen</th>
@@ -44,6 +44,16 @@
                             <span class="badge bg-light text-primary border font-monospace px-2 py-1 fs-6">
                                 {{ d.ip_addr }}
                             </span>
+                        </td>
+                        <td>
+                            {% if d.subnet %}
+                                <div class="fw-bold small text-dark">{{ d.subnet.name }}</div>
+                                <div class="text-muted extra-small font-monospace">{{ d.subnet.cidr }}</div>
+                            {% else %}
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning px-2 py-1">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Unmapped
+                                </span>
+                            {% endif %}
                         </td>
                         <td>
                             {% if d.environment == 'PROD' %}
@@ -103,6 +113,10 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
 
+<style>
+    .extra-small { font-size: 0.7rem; }
+</style>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
@@ -115,16 +129,12 @@
 
 <script>
 $(document).ready(function() {
-    // Custom sort function for IP Addresses
+    // Custom sort za IP Adrese
     jQuery.extend(jQuery.fn.dataTableExt.oSort, {
         "ip-address-pre": function(a) {
-            // Strip HTML tags and trim whitespace
             var ip = a.replace(/<[^>]*>?/gm, '').trim();
             var m = ip.split(".");
-            // If not a valid IP, sort it to the bottom
             if (m.length !== 4) return "999999999999"; 
-            
-            // Pad each octet with leading zeros (e.g. "10.2.2.14" -> "010002002014")
             var padded = "";
             for (var i = 0; i < 4; i++) {
                 var octet = m[i];
@@ -134,12 +144,8 @@ $(document).ready(function() {
             }
             return padded;
         },
-        "ip-address-asc": function(a, b) {
-            return ((a < b) ? -1 : ((a > b) ? 1 : 0));
-        },
-        "ip-address-desc": function(a, b) {
-            return ((a < b) ? 1 : ((a > b) ? -1 : 0));
-        }
+        "ip-address-asc": function(a, b) { return ((a < b) ? -1 : ((a > b) ? 1 : 0)); },
+        "ip-address-desc": function(a, b) { return ((a < b) ? 1 : ((a > b) ? -1 : 0)); }
     });
 
     var table = $('#devicesTable').DataTable({
@@ -147,32 +153,18 @@ $(document).ready(function() {
         "pageLength": 25,
         "dom": '<"d-flex justify-content-between align-items-center mb-3"Bf>rt<"d-flex justify-content-between align-items-center mt-3"ip>',
         "buttons": [
-            {
-                extend: 'excelHtml5',
-                text: '<i class="bi bi-file-earmark-excel me-1"></i> Excel',
-                className: 'btn btn-success btn-sm border-0'
-            },
-            {
-                extend: 'csvHtml5',
-                text: '<i class="bi bi-filetype-csv me-1"></i> CSV',
-                className: 'btn btn-info btn-sm text-white border-0'
-            },
-            {
-                extend: 'pdfHtml5',
-                text: '<i class="bi bi-file-earmark-pdf me-1"></i> PDF',
-                className: 'btn btn-danger btn-sm border-0'
-            }
+            { extend: 'excelHtml5', text: '<i class="bi bi-file-earmark-excel me-1"></i> Excel', className: 'btn btn-success btn-sm border-0' },
+            { extend: 'pdfHtml5', text: '<i class="bi bi-file-earmark-pdf me-1"></i> PDF', className: 'btn btn-danger btn-sm border-0' }
         ],
         "language": {
             "search": "_INPUT_",
-            "searchPlaceholder": "Pretraži uređaje...",
-            "lengthMenu": "Prikaži _MENU_ zapisa",
+            "searchPlaceholder": "Pretraži (ili upiši 'Unmapped')...",
             "info": "Prikazano _START_ do _END_ od ukupno _TOTAL_ uređaja",
             "paginate": { "next": "→", "previous": "←" }
         },
         "columnDefs": [
             { "targets": 'no-sort', "orderable": false },
-            { "type": "ip-address", "targets": 1 } // Primjena našeg custom pravila na kolonu 1
+            { "type": "ip-address", "targets": 1 }
         ]
     });
 
