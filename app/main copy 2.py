@@ -1,11 +1,10 @@
-# v1.1.57
-# Glavna datoteka aplikacije. Dodan globalni redirect za neautorizirane korisnike (UI fix).
+# v1.1.55
+# Glavna datoteka aplikacije. Dodana podrška za globalnu verziju putem Git hasha.
 
-from fastapi import FastAPI, Depends, Request, HTTPException
+from fastapi import FastAPI, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
 import subprocess
 
 # Uvozimo centralne postavke i routere
@@ -19,30 +18,17 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from jose import jwt
 
-# KOMENTAR: Dohvaćanje verzije putem Gita
+# KOMENTAR: Funkcija za dohvaćanje zadnjeg Git commit hasha
 def get_git_hash():
     try:
         return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
     except Exception:
-        return "1.1.57"
+        return "1.1.55"
 
-# Postavljanje verzije za footer (DEVELOPED BY PIOPET)
+# KOMENTAR: Postavljanje globalne varijable verzije dostupne svim Jinja2 predlošcima
 templates.env.globals["app_version"] = get_git_hash()
 
 app = FastAPI(title=settings.APP_NAME)
-
-# --- GLOBALNI EXCEPTION HANDLER ---
-# KOMENTAR: Ako korisnik nije ulogiran (401), šaljemo ga na login umjesto prikaza JSON greške
-@app.exception_handler(StarletteHTTPException)
-async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
-    if exc.status_code == 401:
-        return RedirectResponse(url="/auth/login")
-    # Za sve ostale greške (404, 500), pusti standardni handler ili dodaj svoje stranice
-    return templates.TemplateResponse("error.html", {
-        "request": request,
-        "detail": exc.detail,
-        "status_code": exc.status_code
-    }, status_code=exc.status_code)
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,6 +49,7 @@ app.include_router(discovery_ws.router)
 
 @app.post("/api/sync-dns")
 async def sync_dns_endpoint(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Pokreće DNS sinkronizaciju."""
     try:
         count = run_dns_sync(db)
         return {"status": "success", "message": f"Synced {count} devices from DNS."}
