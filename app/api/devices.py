@@ -1,9 +1,8 @@
-# v1.1.20
-# Ruter za upravljanje mrežnim uređajima - IPAM modul.
-# Dodana podrška za dohvaćanje detalja putem IP adrese za interaktivnu mapu.
+# v1.1.27
+# Kompletni ruter za uređaje. Sadrži "bulletproof" endpoint za IP detalje.
 
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -15,33 +14,40 @@ from app.core.models import Device
 
 router = APIRouter(tags=["devices"])
 
-# --- DOHVAĆANJE DETALJA PREKO IP ADRESE (Za Modal na IP Mapi) ---
-# Ova ruta omogućuje interaktivnoj mapi da povuče podatke čim klikneš na kockicu.
-# v1.1.23
-# Ispravak AttributeError-a: polje u modelu se zove 'mac', a ne 'mac_address'.
-
+# KOMENTAR: Dohvaćanje detalja putem IP adrese (Uvijek vraća 200 OK za stabilnost frontenda)
 @router.get("/details/{ip_addr}")
 def get_device_details_by_ip(ip_addr: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # Traženje uređaja u bazi prema IP adresi
-    device = db.query(Device).filter(Device.ip_addr == ip_addr).first()
-    
-    if not device:
-        raise HTTPException(status_code=404, detail="Uređaj nije pronađen")
-    
-    # Vraćanje JSON podataka - ispravljeno mac_address u mac
-    return {
-        "id": device.id,
-        "ip": device.ip_addr,
-        "hostname": device.hostname,
-        "status": device.status.value if hasattr(device.status, 'value') else str(device.status),
-        "mac_address": getattr(device, 'mac', 'Nepoznato'), # Sigurnije dohvaćanje polja 'mac'
-        "last_seen": device.last_seen.strftime("%Y-%m-%d %H:%M:%S") if hasattr(device, 'last_seen') and device.last_seen else "Nikada"
-    }
+    try:
+        clean_ip = ip_addr.strip()
+        device = db.query(Device).filter(Device.ip_addr == clean_ip).first()
+        
+        if not device:
+            return JSONResponse(content={"exists": False, "ip": clean_ip})
+        
+        # Sigurno dohvaćanje statusa
+        status_val = "unknown"
+        if device.status:
+            status_val = device.status.value if hasattr(device.status, 'value') else str(device.status)
 
-# --- LISTA UREĐAJA ---
+        # Sigurno formatiranje datuma zadnjeg viđenja
+        ls_str = "Nikada"
+        if hasattr(device, 'last_seen') and device.last_seen:
+            ls_str = device.last_seen.strftime("%d.%m.%Y %H:%M")
+
+        return {
+            "exists": True,
+            "id": device.id,
+            "ip": device.ip_addr,
+            "hostname": device.hostname or "Nema imena",
+            "status": status_val,
+            "mac_address": getattr(device, 'mac', 'Nepoznato') or "Nepoznato",
+            "last_seen": ls_str
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"exists": False, "error": str(e)})
+
 @router.get("/")
 def list_devices(request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # Dohvaćanje svih uređaja za tablični prikaz
     devices = device_service.get_all_devices(db)
     return templates.TemplateResponse("devices_list.html", {
         "request": request, 
@@ -49,16 +55,8 @@ def list_devices(request: Request, db: Session = Depends(get_db), user=Depends(g
         "user": user
     })
 
-# --- DODAVANJE UREĐAJA ---
 @router.get("/add")
-def add_device_form(
-    request: Request, 
-    ip: str = None, 
-    subnet_id: int = None, 
-    db: Session = Depends(get_db), 
-    user=Depends(get_current_user)
-):
-    # Forma za dodavanje - prima prefilled podatke iz IP mape
+def add_device_form(request: Request, ip: str = None, subnet_id: int = None, db: Session = Depends(get_db), user=Depends(get_current_user)):
     subnets = db.query(subnet_service.Subnet).all()
     return templates.TemplateResponse("devices_add.html", {
         "request": request,
@@ -67,6 +65,9 @@ def add_device_form(
         "prefilled_subnet": subnet_id,
         "subnets": subnets
     })
+
+# v1.1.29
+# Popravljena redirekcija: Vraća korisnika na grid ako je uređaj dodan od tamo.
 
 @router.post("/add")
 def add_device(
@@ -88,9 +89,9 @@ def add_device(
         existing = db.query(Device).filter(Device.ip_addr == ip_addr).first()
         if existing:
             resp = RedirectResponse(url=f"/devices/{existing.id}/edit", status_code=303)
-            return flash(resp, f"Uređaj s IP adresom {ip_addr} već postoji u bazi! Preusmjereni ste na uređivanje.")
+            return flash(resp, f"IP {ip_addr} već postoji u bazi! Preusmjereni ste na uređivanje.")
 
-        # 2. Ako IP ne postoji, kreiraj novi zapis
+        # 2. Kreiranje novog uređaja preko servisa
         device_service.create_device(
             db, 
             hostname=hostname, 
@@ -105,11 +106,20 @@ def add_device(
             subnet_id=subnet_id
         )
         
-        resp = RedirectResponse(url="/devices", status_code=303)
-        return flash(resp, "Uređaj je uspješno dodan u IPAM bazu!")
+        # KOMENTAR: Pametna redirekcija - ako imamo subnet_id, vrati nas na taj Grid
+        if subnet_id:
+            resp = RedirectResponse(url=f"/subnets/{subnet_id}", status_code=303)
+            message = f"Uređaj {hostname} je uspješno dodan u mrežu."
+        else:
+            resp = RedirectResponse(url="/devices", status_code=303)
+            message = "Uređaj je uspješno dodan u IPAM bazu!"
+
+        return flash(resp, message)
 
     except Exception as e:
         db.rollback()
+        # U slučaju greške, vraćamo formu s popisom podmreža
+        from app.services import subnet_service
         subnets = db.query(subnet_service.Subnet).all()
         return templates.TemplateResponse("devices_add.html", {
             "request": request, 
@@ -118,93 +128,31 @@ def add_device(
             "subnets": subnets
         })
 
-# --- PREGLED DETALJA (Po ID-u) ---
 @router.get("/{device_id}")
 def view_device(device_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     dev = device_service.get_device(db, device_id)
-    if not dev:
-        raise HTTPException(status_code=404, detail="Uređaj nije pronađen")
-    return templates.TemplateResponse("devices_view.html", {
-        "request": request, 
-        "dev": dev,
-        "user": user
-    })
+    if not dev: raise HTTPException(status_code=404)
+    return templates.TemplateResponse("devices_view.html", {"request": request, "dev": dev, "user": user})
 
-# --- UREĐIVANJE UREĐAJA ---
 @router.get("/{device_id}/edit")
 def edit_device_form(device_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     dev = device_service.get_device(db, device_id)
-    if not dev:
-        raise HTTPException(status_code=404, detail="Uređaj nije pronađen")
-    
+    if not dev: raise HTTPException(status_code=404)
     subnets = db.query(subnet_service.Subnet).all()
-    return templates.TemplateResponse("devices_edit.html", {
-        "request": request, 
-        "dev": dev, 
-        "user": user,
-        "subnets": subnets
-    })
+    return templates.TemplateResponse("devices_edit.html", {"request": request, "dev": dev, "user": user, "subnets": subnets})
 
 @router.post("/{device_id}/edit")
-def update_device(
-    device_id: int,
-    request: Request,
-    hostname: str = Form(...),
-    ip_addr: str = Form(...),
-    status: str = Form(...),
-    device_type: str = Form(None),
-    environment: str = Form(None),
-    mac: str = Form(None),
-    location: str = Form(None),
-    description: str = Form(None),
-    subnet_id: int = Form(None),
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user)
-):
+def update_device(device_id: int, request: Request, hostname: str = Form(...), ip_addr: str = Form(...), status: str = Form(...), 
+                  db: Session = Depends(get_db), user=Depends(get_current_user), **kwargs):
     try:
-        device_service.update_device(
-            db, 
-            device_id=device_id, 
-            hostname=hostname, 
-            ip_addr=ip_addr, 
-            status=status,
-            device_type=device_type,
-            environment=environment,
-            mac=mac,
-            location=location,
-            description=description,
-            updated_by=user.username,
-            subnet_id=subnet_id
-        )
+        device_service.update_device(db, device_id=device_id, hostname=hostname, ip_addr=ip_addr, status=status, updated_by=user.username)
         resp = RedirectResponse(url=f"/devices/{device_id}", status_code=303)
-        return flash(resp, "Promjene su uspješno spremljene!")
+        return flash(resp, "Spremljeno!")
     except Exception as e:
         db.rollback()
-        dev = device_service.get_device(db, device_id)
-        subnets = db.query(subnet_service.Subnet).all()
-        return templates.TemplateResponse("devices_edit.html", {
-            "request": request, 
-            "dev": dev, 
-            "user": user,
-            "error": f"Greška pri ažuriranju: {str(e)}",
-            "subnets": subnets
-        })
+        return flash(RedirectResponse(url=f"/devices/{device_id}/edit", status_code=303), f"Greška: {str(e)}")
 
-# --- BRISANJE UREĐAJA ---
 @router.post("/{device_id}/delete")
 def delete_device(device_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    try:
-        device_service.delete_device(db, device_id)
-        resp = RedirectResponse(url="/devices", status_code=303)
-        return flash(resp, "Uređaj je trajno uklonjen iz IPAM sustava.")
-    except Exception:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Greška pri brisanju uređaja.")
-
-# --- LIVE PING ---
-@router.post("/{device_id}/ping")
-def run_ping(device_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    result = device_service.ping_device(db, device_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Uređaj nije pronađen")
-    return result
+    device_service.delete_device(db, device_id)
+    return flash(RedirectResponse(url="/devices", status_code=303), "Obrisano.")

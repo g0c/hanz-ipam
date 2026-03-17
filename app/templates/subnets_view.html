@@ -33,12 +33,24 @@
                     <span class="badge bg-info">Rezervirana</span>
                 </div>
             </div>
-            
-<div class="card-body bg-light">
+     
+            <div class="card-body bg-light">
     <div class="ip-grid" id="ipGridContainer">
         {% for item in data.map %}
-        <div class="ip-box-wrapper" data-bs-toggle="tooltip" title="{{ item.ip }}{% if item.device_type == 'Gateway' %} (Gateway){% endif %}">
-            <div class="ip-box {% if item.is_used %}ip-used{% elif item.type != 'host' %}ip-reserved{% else %}ip-free{% endif %} {% if item.ip.endswith('.1') %}device-gateway{% endif %} cursor-pointer" 
+        <div class="ip-box-wrapper" data-bs-toggle="tooltip" 
+             title="{{ item.ip }}{% if item.get('status') == 'reserved' %} (REZERVIRANO){% endif %}">
+            
+            {# KOMENTAR: Koristimo .get() metodu ili default filter da izbjegnemo pad sustava ako ključ fali #}
+            {% set current_status = item.status.value if item.status and item.status.value is defined else item.status %}
+            
+            <div class="ip-box 
+                {% if current_status == 'reserved' or item.type != 'host' %}
+                    ip-reserved
+                {% elif item.is_used %}
+                    ip-used
+                {% else %}
+                    ip-free
+                {% endif %} cursor-pointer" 
                 id="ip-{{ item.ip | replace('.', '-') }}"
                 onclick="showDeviceDetails('{{ item.ip }}')">
                 {{ item.ip.split('.')[-1] }}
@@ -48,196 +60,113 @@
     </div>
 </div>
 
-
-        </div>
-
-        <div class="card border-0 shadow-sm bg-black text-light overflow-hidden" id="terminalCard" style="display: none;">
-            <div class="card-header bg-dark border-secondary d-flex justify-content-between align-items-center py-2">
-                <span class="small fw-bold text-success font-monospace">DISCOVERY_LOG</span>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-danger pulse-dot" id="liveBadge">LIVE SCANNING</span>
+ <!--           <div class="card-body bg-light">
+                <div class="ip-grid" id="ipGridContainer">
+                    {% for item in data.map %}
+                    <div class="ip-box-wrapper" data-bs-toggle="tooltip" title="{{ item.ip }}{% if item.status == 'reserved' %} (REZERVIRANO){% endif %}">
+                        <div class="ip-box 
+                            {% if item.status == 'reserved' %}ip-reserved
+                            {% elif item.is_used %}ip-used
+                            {% else %}ip-free{% endif %} cursor-pointer" 
+                            id="ip-{{ item.ip | replace('.', '-') }}"
+                            onclick="showDeviceDetails('{{ item.ip }}')">
+                            {{ item.ip.split('.')[-1] }}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
+        </div>
+    -->
+        <div class="card border-0 shadow-sm bg-black text-light overflow-hidden" id="terminalCard" style="display: none;">
+            <div class="card-header bg-dark d-flex justify-content-between align-items-center py-2">
+                <span class="small fw-bold text-success font-monospace">DISCOVERY_LOG</span>
+                <span class="badge bg-danger pulse-dot" id="liveBadge">LIVE SCANNING</span>
+            </div>
             <div class="card-body font-monospace p-3" id="scanTerminal" 
-                 style="height: 300px; overflow-y: auto; font-size: 0.85rem; color: #00ff41; background: #0c0c0c; line-height: 1.4;">
-                <div>> System ready. Awaiting trigger...</div>
+                 style="height: 250px; overflow-y: auto; font-size: 0.85rem; color: #00ff41; background: #0c0c0c;">
+                <div>> System ready...</div>
             </div>
         </div>
     </div>
 </div>
-
-
-
-<script>
-let socket;
-
-function startLiveScan() {
-    const $btn = $('#scanBtn');
-    const $terminal = $('#terminalCard');
-    const $console = $('#scanTerminal');
-    const subnetId = "{{ data.subnet.id }}";
-    
-    // UI Reset & Setup
-    $btn.addClass('disabled').prop('disabled', true);
-    $('#radarIcon').addClass('radar-active');
-    $terminal.slideDown();
-    $console.html("<div><span class='text-primary'>[SYS]</span> Establishing WebSocket connection...</div>");
-
-    // Dynamic WS Protocol detection
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    
-    // Spajanje na endpoint
-    socket = new WebSocket(`${protocol}//${host}/ws/scan/${subnetId}`);
-
-    socket.onmessage = function(event) {
-        const rawData = event.data;
-        const timestamp = new Date().toLocaleTimeString();
-        const line = `<div><span class="text-muted">[${timestamp}]</span> ${rawData}</div>`;
-        
-        $console.append(line);
-        $console.scrollTop($console[0].scrollHeight);
-
-        // --- AUTOMATSKO BOJANJE KOCKICA ---
-        // Tražimo IP adresu u poruci pomoću Regexa
-        const ipMatch = rawData.match(/\d+\.\d+\.\d+\.\d+/);
-        
-        if (ipMatch) {
-            const ip = ipMatch[0];
-            const elementId = `ip-${ip.replaceAll('.', '-')}`;
-            const $box = $(`#${elementId}`);
-
-            if (rawData.includes('[FOUND]')) {
-                // Ako je host pronađen, a kockica je bila siva (free)
-                if ($box.hasClass('ip-free')) {
-                    $box.removeClass('ip-free').addClass('ip-used update-glow');
-                    // Makni glow efekt nakon 2 sekunde
-                    setTimeout(() => $box.removeClass('update-glow'), 2000);
-                }
-            } else if (rawData.includes('[SKIP]')) {
-                // Ako host ne odgovara, a bio je zelen, vrati ga u sivo (opcionalno, ovisi o tvojoj politici)
-                if ($box.hasClass('ip-used')) {
-                    $box.removeClass('ip-used').addClass('ip-free');
-                }
-            }
-        }
-    };
-
-    socket.onclose = function() {
-        $console.append("<div class='text-warning mt-2'>> [INFO] Scan complete. Map synchronized.</div>");
-        $btn.removeClass('disabled').prop('disabled', false);
-        $('#radarIcon').removeClass('radar-active');
-        $('#liveBadge').removeClass('bg-danger').addClass('bg-secondary').text('IDLE');
-    };
-
-    socket.onerror = function() {
-        $console.append("<div class='text-danger'>> [ERROR] Connection lost or refused.</div>");
-        $btn.removeClass('disabled').prop('disabled', false);
-    };
-}
-
-// Funkcija za otvaranje modala s detaljima uređaja
-// Funkcija za dohvaćanje i prikaz detalja uređaja u modalu.
-// v1.1.21 - Pametni modal koji nudi registraciju ako uređaj ne postoji
-// v1.1.22 - Popravljen jezik i stabilnost prikaza podataka
-function showDeviceDetails(ip) {
-    const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
-    const $container = $('#modalContent');
-    const $editBtn = $('#editDeviceBtn');
-    
-    modal.show();
-    $container.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Provjera baze podataka...</p></div>');
-
-    fetch(`/devices/details/${ip}`)
-        .then(response => {
-            if (!response.ok) {
-                if (response.status === 404) {
-                    throw new Error('NOT_FOUND');
-                }
-                throw new Error('Greška na poslužitelju (provjerite backend logove).');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // UREĐAJ PRONAĐEN - Prikazujemo stvarne podatke iz baze
-            let html = `
-                <div class="mb-3">
-                    <label class="small text-uppercase fw-bold text-muted">IP Adresa</label>
-                    <div class="fs-5 fw-bold text-success">${data.ip}</div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-6">
-                        <label class="small text-uppercase fw-bold text-muted">Ime domaćina (Hostname)</label>
-                        <div class="fw-bold text-dark">${data.hostname || 'Nije definirano'}</div>
-                    </div>
-                    <div class="col-6">
-                        <label class="small text-uppercase fw-bold text-muted">Status</label>
-                        <div><span class="badge bg-success">${data.status || 'aktivan'}</span></div>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="small text-uppercase fw-bold text-muted">MAC Adresa</label>
-                    <div class="font-monospace text-muted">${data.mac_address || 'Nepoznato'}</div>
-                </div>
-                <div class="mb-0">
-                    <label class="small text-uppercase fw-bold text-muted">Zadnji put viđen</label>
-                    <div class="small text-dark">${data.last_seen || 'Nikada'}</div>
-                </div>
-            `;
-            $container.html(html);
-            
-            // Postavljanje gumba na UREĐIVANJE
-            $editBtn.text('Uredi uređaj').removeClass('btn-success').addClass('btn-primary')
-                .attr('onclick', `window.location.href='/devices/${data.id}/edit'`).show();
-        })
-        .catch(error => {
-            if (error.message === 'NOT_FOUND') {
-                // UREĐAJ NIJE U BAZI - Nudimo registraciju
-                $container.html(`
-                    <div class="text-center py-3">
-                        <i class="bi bi-plus-circle text-warning display-4"></i>
-                        <h5 class="mt-3 fw-bold">Neregistrirani IP</h5>
-                        <p class="text-muted small">Adresa ${ip} je slobodna. Želite li je dodati u bazu?</p>
-                    </div>
-                `);
-                
-                // Postavljanje gumba na REGISTRACIJU
-                $editBtn.text('Registriraj uređaj').removeClass('btn-primary').addClass('btn-success')
-                    .attr('onclick', `window.location.href='/devices/add?ip=${ip}&subnet_id={{ data.subnet.id }}'`).show();
-            } else {
-                // Prikazujemo stvarnu grešku ako nešto pukne na backendu
-                $container.html(`
-                    <div class="alert alert-danger border-0">
-                        <i class="bi bi-exclamation-octagon me-2"></i>
-                        ${error.message}
-                    </div>
-                `);
-                $editBtn.hide();
-            }
-        });
-}
-
-</script>
 
 <div class="modal fade" id="deviceModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-dark text-white">
                 <h5 class="modal-title fw-bold"><i class="bi bi-cpu me-2"></i>Detalji uređaja</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Zatvori"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4" id="modalContent">
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted">Pozivam API za podatke...</p>
                 </div>
-            </div>
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zatvori</button>
-                <button type="button" class="btn btn-primary fw-bold" id="editDeviceBtn">Uredi uređaj</button>
+                <button type="button" class="btn btn-primary fw-bold" id="editDeviceBtn">Uredi</button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+let socket;
+
+function startLiveScan() {
+    const $btn = $('#scanBtn');
+    const $console = $('#scanTerminal');
+    $('#terminalCard').slideDown();
+    $btn.prop('disabled', true);
+    $('#radarIcon').addClass('radar-active');
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    socket = new WebSocket(`${protocol}//${window.location.host}/ws/scan/{{ data.subnet.id }}`);
+
+    socket.onmessage = function(e) {
+        $console.append(`<div>${e.data}</div>`).scrollTop($console[0].scrollHeight);
+    };
+
+    socket.onclose = function() {
+        $btn.prop('disabled', false);
+        $('#radarIcon').removeClass('radar-active');
+    };
+}
+
+function showDeviceDetails(ip) {
+    const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
+    const $container = $('#modalContent');
+    const $editBtn = $('#editDeviceBtn');
+    
+    modal.show();
+    $container.html('<div class="text-center"><div class="spinner-border text-primary"></div></div>');
+
+    fetch(`/devices/details/${ip}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.exists) {
+                let statusBadge = data.status === 'reserved' ? 'bg-info text-dark' : 'bg-success';
+                $container.html(`
+                    <h4 class="text-success fw-bold mb-3">${data.ip}</h4>
+                    <p><strong>Hostname:</strong> ${data.hostname}</p>
+                    <p><strong>Status:</strong> <span class="badge ${statusBadge}">${data.status}</span></p>
+                    <p><strong>MAC:</strong> <span class="font-monospace">${data.mac_address}</span></p>
+                    <p class="small text-muted mb-0">Zadnji put viđen: ${data.last_seen}</p>
+                `);
+                $editBtn.text('Uredi uređaj').removeClass('btn-success').addClass('btn-primary')
+                    .attr('onclick', `window.location.href='/devices/${data.id}/edit'`).show();
+            } else {
+                $container.html(`
+                    <div class="text-center py-3">
+                        <i class="bi bi-plus-circle text-warning display-4"></i>
+                        <h5 class="mt-3">Slobodna adresa</h5>
+                        <p class="text-muted">IP <strong>${ip}</strong> nije u bazi.</p>
+                    </div>
+                `);
+                $editBtn.text('Registriraj uređaj').removeClass('btn-primary').addClass('btn-success')
+                    .attr('onclick', `window.location.href='/devices/add?ip=${ip}&subnet_id={{ data.subnet.id }}'`).show();
+            }
+        })
+        .catch(err => $container.html('<div class="alert alert-danger">Sustav nije dostupan.</div>'));
+}
+</script>
 
 {% endblock %}
