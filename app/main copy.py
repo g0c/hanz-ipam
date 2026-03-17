@@ -1,11 +1,15 @@
-# v1.1.55
-# Glavna datoteka aplikacije. Dodana podrška za globalnu verziju putem Git hasha.
+# v1.1.54
+# Glavna datoteka aplikacije. Centralizirano upravljanje postavkama.
 
 from fastapi import FastAPI, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-import subprocess
+from fastapi import BackgroundTasks # Za pokretanje u pozadini ako je zona velika
+from app.services.dns_sync import run_dns_sync
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from jose import jwt
 
 # Uvozimo centralne postavke i routere
 from app.core.config import settings
@@ -13,21 +17,8 @@ from app.api import auth, devices, subnets, audit, discovery_ws
 from app.api.dependencies import get_current_user, get_db
 from app.core.models import User, Device, Subnet
 from app.core.ui import templates
-from app.services.dns_sync import run_dns_sync
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from jose import jwt
 
-# KOMENTAR: Funkcija za dohvaćanje zadnjeg Git commit hasha
-def get_git_hash():
-    try:
-        return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
-    except Exception:
-        return "1.1.55"
-
-# KOMENTAR: Postavljanje globalne varijable verzije dostupne svim Jinja2 predlošcima
-templates.env.globals["app_version"] = get_git_hash()
-
+# Inicijalizacija aplikacije s nazivom iz config.py
 app = FastAPI(title=settings.APP_NAME)
 
 app.add_middleware(
@@ -47,9 +38,12 @@ app.include_router(subnets.router, prefix="/subnets")
 app.include_router(audit.router, prefix="/audit")
 app.include_router(discovery_ws.router)
 
+# KOMENTAR: Ruta koja pokreće sinkronizaciju i vraća broj obrađenih uređaja
 @app.post("/api/sync-dns")
 async def sync_dns_endpoint(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """Pokreće DNS sinkronizaciju."""
+    """
+    Pokreće DNS sinkronizaciju. Zaštićeno dependencyjem za trenutnog korisnika.
+    """
     try:
         count = run_dns_sync(db)
         return {"status": "success", "message": f"Synced {count} devices from DNS."}
@@ -62,6 +56,7 @@ async def root(request: Request):
     if not token:
         return RedirectResponse(url="/auth/login")
     try:
+        # Dekodiranje koristeći ključeve iz settings
         jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGO])
         return RedirectResponse(url="/dashboard")
     except Exception:
