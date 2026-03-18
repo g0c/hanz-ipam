@@ -136,49 +136,31 @@ async def root(request: Request):
 # v1.1.60
 # Dashboard ruter s podrškom za NOC status i asinkroni monitor.
 
-# v1.1.61
-# Dashboard ruter - Popravljen kronološki redoslijed događaja (Newest First).
-
-# v1.1.62
-# Dashboard ruter - "Pancirno" sortiranje događaja koristeći timestamp i ID.
-# Osigurano da najnoviji unosi uvijek budu na vrhu.
-
 @app.get("/dashboard")
 async def dashboard_view(request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    from app.core.models import AuditLog, Device, Subnet
-    from sqlalchemy import func
-
-    # Osnovne brojke
+    from app.core.models import AuditLog
+    
     count_subnets = db.query(Subnet).count()
     count_devices = db.query(Device).count()
     
-    # Statistika po statusima
     status_stats = db.query(Device.status, func.count(Device.id)).group_by(Device.status).all()
     status_data = {str(s[0].value if hasattr(s[0], 'value') else s[0]): s[1] for s in status_stats}
 
-    # Statistika po okruženjima
     env_stats = db.query(Device.environment, func.count(Device.id)).group_by(Device.environment).all()
-    env_data = {str(e[0] if e[0] else "Nepoznato"): e[1] for e in env_stats}
+    env_data = {str(e[0] if e[0] else "Unknown"): e[1] for e in env_stats}
 
-    # KOMENTAR: Poredak po vremenu DESC (najnovije) i ID DESC (zadnji unesen).
-    # Ovo rješava problem ako više događaja ima isti timestamp u istoj sekundi.
-    recent_logs = db.query(AuditLog).order_by(
-        AuditLog.timestamp.desc(), 
-        AuditLog.id.desc()
-    ).limit(7).all()
+    # DOHVAĆANJE ZADNJIH INCIDENATA (OFFLINE/ONLINE promjene)
+    recent_logs = db.query(AuditLog).filter(
+        AuditLog.action.in_(["STATUS_CHANGE", "DISCOVERY"])
+    ).order_by(AuditLog.timestamp.desc()).limit(7).all()
 
-    # Izračun kapaciteta (na bazi /24 mreža)
+    # IZRČUN KAPACITETA (Procjena na temelju /24 subneta)
     total_capacity = count_subnets * 254 if count_subnets > 0 else 1
     usage_percentage = round((count_devices / total_capacity) * 100, 1)
 
     return templates.TemplateResponse("home.html", {
-        "request": request, 
-        "user": user, 
-        "device_count": count_devices,
-        "subnet_count": count_subnets, 
-        "status_data": status_data,
-        "env_data": env_data, 
-        "backup_info": get_last_backup_status(),
-        "recent_logs": recent_logs, 
-        "usage_percentage": usage_percentage
+        "request": request, "user": user, "device_count": count_devices,
+        "subnet_count": count_subnets, "status_data": status_data,
+        "env_data": env_data, "backup_info": get_last_backup_status(),
+        "recent_logs": recent_logs, "usage_percentage": usage_percentage
     })

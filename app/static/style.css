@@ -312,11 +312,19 @@ form .btn-primary:hover {
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
+/* v1.0.5 - Fix za boju rezerviranih IP adresa */
 .ip-reserved {
-    background-color: #cfe2ff !important;
-    color: #084298 !important;
-    border-color: #b6d4fe;
-    cursor: default;
+    background-color: #0dcaf0 !important; /* Bootstrap 'info' plava */
+    color: #000 !important;
+    border-color: #0baccc !important;
+    cursor: help;
+}
+
+.ip-reserved:hover {
+    background-color: #31d2f2 !important;
+    transform: scale(1.2);
+    z-index: 10;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
 /* Radar Animation */
@@ -359,28 +367,94 @@ form .btn-primary:hover {
 #scanTerminal::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 #scanTerminal::-webkit-scrollbar-thumb:hover { background: #444; }
 
-/* v1.0.5 */
-/* Isticanje mrežne opreme debljim rubom */
+/* v1.0.1 - Dodana izblijedjela mrežna pozadina */
 
-.ip-box.device-gateway {
-    border: 3px solid #343a40 !important; /* Tamniji i deblji rub za Gateway */
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.2); /* Lagana sjena unutra za dubinu */
+body {
+    position: relative;
+    min-height: 100vh;
 }
 
-/* v1.0.6 */
-/* Stil za isticanje Gateway uređaja na mapi */
-.device-gateway {
-    border: 3px solid #212529 !important; /* Deblji, tamni rub */
-    position: relative; z-index: 10; /* Iznad ostalih */
+body::before {
+    content: "";
+    background-image: url('/static/img/network-background.svg'); /* Putanja do tvoje slike */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Fade/muted efekt: 5% vidljivosti (diskretno) */
+    opacity: 0.15; 
+    z-index: -1; /* Postavlja sliku iza sadržaja */
+    pointer-events: none; /* Slika ne ometa klikove na sadržaj */
 }
 
-/* Opcionalno: mali indikator u kutu za još bolju uočljivost */
-.device-gateway::after {
-    content: "G";
-    position: absolute;
-    top: -2px;
-    right: 1px;
-    font-size: 8px;
-    font-weight: bold;
-    color: #212529;
+/* v1.0.3 - Dashboard Stat Cards Alignment */
+.stat-card {
+    min-height: 105px; /* Fiksna visina za sve kartice u redu */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Centriranje sadržaja po visini */
+}
+
+/* Pulsirajući efekt za stari backup */
+.animate-pulse {
+    animation: shadow-pulse 2s infinite;
+}
+
+@keyframes shadow-pulse {
+    0% { box-shadow: 0 0 0 0px rgba(220, 53, 69, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0px rgba(220, 53, 69, 0); }
+}
+
+/* v1.0.4 - Status Indicators (CheckIPAM Lite) */
+
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+/* Aktivni uređaji - zeleno pulsiranje */
+.status-online {
+    background-color: #27ae60;
+    box-shadow: 0 0 5px rgba(39, 174, 96, 0.5);
+    animation: status-pulse 2s infinite;
+}
+
+/* Isključeni uređaji - crveno */
+.status-offline {
+    background-color: #c0392b;
+}
+
+/* Rezervirani/Nepoznati - žuto/sivo */
+.status-reserved { background-color: #f39c12; }
+.status-unknown { background-color: #7f8c8d; }
+
+@keyframes status-pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(39, 174, 96, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(39, 174, 96, 0); }
+}
+
+/* Tooltip za last seen */
+.last-seen-text {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+/* v1.0.7 - Animirano pulsiranje za kockice u gridu */
+@keyframes pulse-highlight {
+    0% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.2); filter: brightness(1.5); z-index: 10; }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+.animate-pulse {
+    animation: pulse-highlight 0.5s ease-in-out;
 }

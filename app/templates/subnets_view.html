@@ -1,8 +1,24 @@
 {% extends "base.html" %}
+
+{% block extra_head %}
+    {% endblock %}
+
 {% block content %}
+<style>
+    /* Animacija za pulsiranje kockica dok ih skener provjerava */
+    @keyframes pulse-highlight {
+        0% { transform: scale(1); filter: brightness(1); }
+        50% { transform: scale(1.15); filter: brightness(1.4); z-index: 10; }
+        100% { transform: scale(1); filter: brightness(1); }
+    }
+    .box-scanning {
+        animation: pulse-highlight 0.6s ease-in-out;
+    }
+</style>
 
 <div class="row justify-content-center mt-4">
     <div class="col-md-12">
+        
         <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white rounded shadow-sm border-start border-4 border-primary">
             <div>
                 <nav aria-label="breadcrumb">
@@ -16,9 +32,9 @@
                 </h3>
             </div>
             <div class="d-flex gap-2">
-                <button onclick="startLiveScan()" id="scanBtn" class="btn btn-warning fw-bold shadow-sm">
-                    <i class="bi bi-radar me-1" id="radarIcon"></i>
-                    <span id="scanBtnText">Pokreni skeniranje uživo</span>
+                <button onclick="startTurboScan({{ data.subnet.id }})" id="btnStartScan" class="btn btn-warning fw-bold shadow-sm">
+                    <i class="bi bi-cpu-fill me-1" id="radarIcon"></i>
+                    <span id="scanBtnText">Turbo Live Scan</span>
                 </button>
                 <a href="/subnets" class="btn btn-outline-secondary">Natrag</a>
             </div>
@@ -35,39 +51,22 @@
             </div>
      
             <div class="card-body bg-light">
-    <div class="ip-grid" id="ipGridContainer">
-        {% for item in data.map %}
-        <div class="ip-box-wrapper" data-bs-toggle="tooltip" 
-             title="{{ item.ip }}{% if item.get('status') == 'reserved' %} (REZERVIRANO){% endif %}">
-            
-            {# KOMENTAR: Koristimo .get() metodu ili default filter da izbjegnemo pad sustava ako ključ fali #}
-            {% set current_status = item.status.value if item.status and item.status.value is defined else item.status %}
-            
-            <div class="ip-box 
-                {% if current_status == 'reserved' or item.type != 'host' %}
-                    ip-reserved
-                {% elif item.is_used %}
-                    ip-used
-                {% else %}
-                    ip-free
-                {% endif %} cursor-pointer" 
-                id="ip-{{ item.ip | replace('.', '-') }}"
-                onclick="showDeviceDetails('{{ item.ip }}')">
-                {{ item.ip.split('.')[-1] }}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
- <!--           <div class="card-body bg-light">
                 <div class="ip-grid" id="ipGridContainer">
                     {% for item in data.map %}
-                    <div class="ip-box-wrapper" data-bs-toggle="tooltip" title="{{ item.ip }}{% if item.status == 'reserved' %} (REZERVIRANO){% endif %}">
+                    <div class="ip-box-wrapper" data-bs-toggle="tooltip" 
+                         title="{{ item.ip }}{% if item.get('status') == 'reserved' %} (REZERVIRANO){% endif %}">
+                        
+                        {# KOMENTAR: Prioritet boja: Reserved > Used > Free #}
+                        {% set current_status = item.status.value if item.status and item.status.value is defined else item.status %}
+                        
                         <div class="ip-box 
-                            {% if item.status == 'reserved' %}ip-reserved
-                            {% elif item.is_used %}ip-used
-                            {% else %}ip-free{% endif %} cursor-pointer" 
+                            {% if current_status == 'reserved' or item.type != 'host' %}
+                                ip-reserved
+                            {% elif item.is_used %}
+                                ip-used
+                            {% else %}
+                                ip-free
+                            {% endif %} cursor-pointer" 
                             id="ip-{{ item.ip | replace('.', '-') }}"
                             onclick="showDeviceDetails('{{ item.ip }}')">
                             {{ item.ip.split('.')[-1] }}
@@ -77,16 +76,15 @@
                 </div>
             </div>
         </div>
-    -->
+
         <div class="card border-0 shadow-sm bg-black text-light overflow-hidden" id="terminalCard" style="display: none;">
             <div class="card-header bg-dark d-flex justify-content-between align-items-center py-2">
-                <span class="small fw-bold text-success font-monospace">DISCOVERY_LOG</span>
-                <span class="badge bg-danger pulse-dot" id="liveBadge">LIVE SCANNING</span>
+                <span class="small fw-bold text-success font-monospace">TURBO_DISCOVERY_ENGINE</span>
+                <span class="badge bg-danger pulse-dot" id="liveBadge">SCANNING...</span>
             </div>
             <div class="card-body font-monospace p-3" id="scanTerminal" 
                  style="height: 250px; overflow-y: auto; font-size: 0.85rem; color: #00ff41; background: #0c0c0c;">
-                <div>> System ready...</div>
-            </div>
+                </div>
         </div>
     </div>
 </div>
@@ -98,11 +96,10 @@
                 <h5 class="modal-title fw-bold"><i class="bi bi-cpu me-2"></i>Detalji uređaja</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4" id="modalContent">
-                </div>
+            <div class="modal-body p-4" id="modalContent"></div>
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zatvori</button>
-                <button type="button" class="btn btn-primary fw-bold" id="editDeviceBtn">Uredi</button>
+                <button type="button" class="btn btn-primary fw-bold" id="editDeviceBtn" style="display:none;">Uredi</button>
             </div>
         </div>
     </div>
@@ -110,63 +107,153 @@
 
 <script>
 let socket;
+let safetyTimer;
 
-function startLiveScan() {
-    const $btn = $('#scanBtn');
-    const $console = $('#scanTerminal');
-    $('#terminalCard').slideDown();
-    $btn.prop('disabled', true);
-    $('#radarIcon').addClass('radar-active');
+// KOMENTAR: Funkcija za pokretanje WebSocket Turbo skeniranja
+function startTurboScan(subnetId) {
+    const btn = document.getElementById('btnStartScan');
+    const btnText = document.getElementById('scanBtnText');
+    const consoleDiv = $('#scanTerminal');
+    const terminalCard = $('#terminalCard');
+    
+    if (!btn) {
+        console.error("Greška: Gumb btnStartScan nije pronađen!");
+        return;
+    }
+
+    const originalHtml = btn.innerHTML;
+    
+    // UI Priprema
+    terminalCard.slideDown();
+    btn.disabled = true;
+    btnText.innerText = 'Skeniram...';
+    consoleDiv.html('<div class="text-success">> Inicijalizacija Turbo Engine-a...</div>');
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    socket = new WebSocket(`${protocol}//${window.location.host}/ws/scan/{{ data.subnet.id }}`);
+    socket = new WebSocket(`${protocol}//${window.location.host}/ws/discovery/${subnetId}`);
+
+    // KOMENTAR: Sigurnosni prekid u slučaju da WebSocket "zapne"
+    safetyTimer = setTimeout(() => {
+        if (btn.disabled) {
+            consoleDiv.append('<div class="text-danger">> Scan timeout reached (120s). Releasing UI...</div>');
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            if(socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+        }
+    }, 120000);
 
     socket.onmessage = function(e) {
-        $console.append(`<div>${e.data}</div>`).scrollTop($console[0].scrollHeight);
+        const data = JSON.parse(e.data);
+
+        if (data.type === 'start') {
+            consoleDiv.append(`<div class="text-warning">> Skeniranje ${data.total} adresa započeto...</div>`);
+        }
+
+        if (data.type === 'result') {
+            const boxId = `ip-${data.ip.replace(/\./g, '-')}`;
+            const $box = $(`#${boxId}`);
+
+            if ($box.length) {
+                $box.removeClass('ip-used ip-free').addClass('box-scanning');
+                
+                if (data.is_online) {
+                    $box.addClass('ip-used');
+                    consoleDiv.append(`<div><span class="text-success fw-bold">[OK]</span> ${data.ip} je aktivan.</div>`);
+                } else {
+                    $box.addClass('ip-free');
+                    consoleDiv.append(`<div class="text-muted" style="opacity: 0.5;">[..] ${data.ip} nema odgovora.</div>`);
+                }
+
+                setTimeout(() => $box.removeClass('box-scanning'), 600);
+            }
+            consoleDiv.scrollTop(consoleDiv[0].scrollHeight);
+        }
+
+        if (data.type === 'finish') {
+            clearTimeout(safetyTimer);
+            consoleDiv.append(`<div class="text-info fw-bold">> Skeniranje uspješno završeno!</div>`);
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sinkronizirano!',
+                    text: 'Sve adrese su provjerene.',
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => location.reload());
+            } else {
+                alert("Skeniranje završeno!");
+                location.reload();
+            }
+        }
+
+        if (data.type === 'error') {
+            consoleDiv.append(`<div class="text-danger">> GREŠKA: ${data.message}</div>`);
+        }
     };
 
+    socket.onerror = function(err) {
+        clearTimeout(safetyTimer);
+        console.error("WS Greška:", err);
+        consoleDiv.append('<div class="text-danger">> Greška u komunikaciji sa serverom! Provjerite Apache konfiguraciju.</div>');
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    };
+    
     socket.onclose = function() {
-        $btn.prop('disabled', false);
-        $('#radarIcon').removeClass('radar-active');
+        console.log("[*] WebSocket veza zatvorena.");
     };
 }
 
+// KOMENTAR: Prikaz detalja u modalu prilikom klika na grid
 function showDeviceDetails(ip) {
     const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
     const $container = $('#modalContent');
     const $editBtn = $('#editDeviceBtn');
     
     modal.show();
-    $container.html('<div class="text-center"><div class="spinner-border text-primary"></div></div>');
+    $container.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>');
 
     fetch(`/devices/details/${ip}`)
         .then(res => res.json())
         .then(data => {
             if (data.exists) {
-                let statusBadge = data.status === 'reserved' ? 'bg-info text-dark' : 'bg-success';
+                let statusBadge = (data.status === 'reserved' || data.status === 'Reserved') ? 'bg-info text-dark' : 'bg-success';
                 $container.html(`
-                    <h4 class="text-success fw-bold mb-3">${data.ip}</h4>
-                    <p><strong>Hostname:</strong> ${data.hostname}</p>
-                    <p><strong>Status:</strong> <span class="badge ${statusBadge}">${data.status}</span></p>
-                    <p><strong>MAC:</strong> <span class="font-monospace">${data.mac_address}</span></p>
-                    <p class="small text-muted mb-0">Zadnji put viđen: ${data.last_seen}</p>
+                    <h4 class="text-primary fw-bold mb-3">${data.ip}</h4>
+                    <hr>
+                    <div class="row g-3">
+                        <div class="col-6"><strong>Hostname:</strong><br>${data.hostname}</div>
+                        <div class="col-6"><strong>Status:</strong><br><span class="badge ${statusBadge}">${data.status}</span></div>
+                        <div class="col-12"><strong>MAC Adresa:</strong><br><span class="font-monospace">${data.mac_address}</span></div>
+                        <div class="col-12 text-muted small"><strong>Zadnji put viđen:</strong><br>${data.last_seen}</div>
+                    </div>
                 `);
-                $editBtn.text('Uredi uređaj').removeClass('btn-success').addClass('btn-primary')
-                    .attr('onclick', `window.location.href='/devices/${data.id}/edit'`).show();
+                $editBtn.show()
+                    .text('Uredi')
+                    .removeClass('btn-success').addClass('btn-primary')
+                    .attr('onclick', `window.location.href='/devices/${data.id}/edit'`);
             } else {
                 $container.html(`
                     <div class="text-center py-3">
-                        <i class="bi bi-plus-circle text-warning display-4"></i>
+                        <i class="bi bi-plus-circle text-muted display-4"></i>
                         <h5 class="mt-3">Slobodna adresa</h5>
-                        <p class="text-muted">IP <strong>${ip}</strong> nije u bazi.</p>
+                        <p class="text-muted">IP <strong>${ip}</strong> je trenutno slobodan.</p>
                     </div>
                 `);
-                $editBtn.text('Registriraj uređaj').removeClass('btn-primary').addClass('btn-success')
-                    .attr('onclick', `window.location.href='/devices/add?ip=${ip}&subnet_id={{ data.subnet.id }}'`).show();
+                $editBtn.show()
+                    .text('Dodaj uređaj')
+                    .removeClass('btn-primary').addClass('btn-success')
+                    .attr('onclick', `window.location.href='/devices/add?ip=${ip}&subnet_id={{ data.subnet.id }}'`);
             }
         })
-        .catch(err => $container.html('<div class="alert alert-danger">Sustav nije dostupan.</div>'));
+        .catch(err => {
+            $container.html('<div class="alert alert-danger">Greška pri dohvaćanju podataka sa servera.</div>');
+        });
 }
 </script>
-
 {% endblock %}

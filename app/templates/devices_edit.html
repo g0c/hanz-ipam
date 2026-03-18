@@ -45,6 +45,7 @@
                         <div class="col-md-4">
                             <label class="form-label fw-bold"><i class="bi bi-router me-1 text-muted"></i>Tip uređaja</label>
                             <select class="form-select" name="device_type">
+                                <option value="Klijent" {% if dev.device_type == 'Klijent' %}selected{% endif %}>Klijent (Workstation/Laptop)</option>
                                 <option value="Server" {% if dev.device_type == 'Server' %}selected{% endif %}>Server</option>
                                 <option value="Firewall" {% if dev.device_type == 'Firewall' %}selected{% endif %}>Vatrozid (Firewall)</option>
                                 <option value="Switch" {% if dev.device_type == 'Switch' %}selected{% endif %}>Mrežni preklopnik (Switch)</option>

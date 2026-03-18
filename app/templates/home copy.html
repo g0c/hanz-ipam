@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    /* Lokalni stilovi za interaktivnost kartica */
+    .stat-link {
+        text-decoration: none !important;
+        color: inherit !important;
+        display: block;
+    }
+    .stat-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1) !important;
+    }
+    .animate-pulse {
+        animation: pulse-bg 2s infinite;
+    }
+    @keyframes pulse-bg {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+</style>
+
+<div class="row mb-4 align-items-center">
+    <div class="col">
+        <h2 class="fw-bold text-dark"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>IPAM</h2>
+        <p class="text-muted">Analiza mrežnih resursa i statusa infrastrukture.</p>
+    </div>
+    <div class="col-auto">
+        <div class="btn-group shadow-sm">
+            <a href="/devices/add" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Novi uređaj</a>
+            <button onclick="window.location.reload()" class="btn btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-2">
+        <a href="/devices/" class="stat-link">
+            <div class="card stat-card border-0 shadow-sm border-start border-primary border-4">
+                <div class="card-body py-2">
+                    <small class="text-uppercase fw-bold text-muted small">Ukupno Hostova</small>
+                    <h3 class="mb-0 fw-bold">{{ device_count }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-2">
+        <a href="/subnets" class="stat-link">
+            <div class="card stat-card border-0 shadow-sm border-start border-success border-4">
+                <div class="card-body py-2">
+                    <small class="text-uppercase fw-bold text-muted small">Podmreža</small>
+                    <h3 class="mb-0 fw-bold">{{ subnet_count }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-2">
+        <a href="/devices/?status=active" class="stat-link">
+            <div class="card stat-card border-0 shadow-sm border-start border-warning border-4">
+                <div class="card-body py-2">
+                    <small class="text-uppercase fw-bold text-muted small">Živo (Live)</small>
+                    <h3 class="mb-0 fw-bold text-success">{{ status_data.get('active', 0) }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-2">
+        <a href="/devices/?status=offline" class="stat-link">
+            <div class="card stat-card border-0 shadow-sm border-start border-danger border-4">
+                <div class="card-body py-2">
+                    <small class="text-uppercase fw-bold text-muted small">Mrtvo / Dead</small>
+                    <h3 class="mb-0 fw-bold text-danger">{{ status_data.get('offline', 0) }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+    
+    <div class="col-md-4">
+        {% if backup_info %}
+        <div class="card stat-card border-0 shadow-sm border-start border-4 {% if backup_info.is_recent %}border-info{% else %}border-danger animate-pulse{% endif %}">
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-uppercase fw-bold text-muted small">Zadnji Backup</small>
+                        <div class="fw-bold {% if not backup_info.is_recent %}text-danger{% endif %}">
+                            <i class="bi bi-shield-check me-1"></i>{{ backup_info.time }}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge {% if backup_info.is_recent %}bg-info{% else %}bg-danger{% endif %}">{{ backup_info.size_mb }} MB</span>
+                        {% if not backup_info.is_recent %}
+                        <div class="small text-danger fw-bold mt-1"><i class="bi bi-exclamation-triangle"></i> STARI</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card stat-card border-0 shadow-sm border-start border-danger border-4">
+            <div class="card-body py-2">
+                <small class="text-uppercase fw-bold text-muted small">Backup Status</small>
+                <div class="text-danger fw-bold"><i class="bi bi-x-circle me-1"></i>Nema arhiva!</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">Sustavna analitika</h1>
+    <button id="syncDnsBtn" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-repeat me-1"></i> Sync DNS Records
+    </button>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold py-3"><i class="bi bi-pie-chart me-2"></i>Status uređaja</div>
+            <div class="card-body d-flex justify-content-center">
+                <div style="width: 300px;"><canvas id="statusChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold py-3"><i class="bi bi-bar-chart me-2"></i>Okruženja (Infrastruktura)</div>
+            <div class="card-body">
+                <canvas id="envChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+$(document).ready(function() {
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Aktivan', 'Rezerviran', 'Isključen', 'Nepoznato'],
+            datasets: [{
+                data: [
+                    {{ status_data.get('active', 0) }},
+                    {{ status_data.get('reserved', 0) }},
+                    {{ status_data.get('offline', 0) }},
+                    {{ status_data.get('unknown', 0) }}
+                ],
+                backgroundColor: ['#198754', '#ffc107', '#dc3545', '#6c757d'],
+                borderWidth: 0
+            }]
+        },
+        options: { cutout: '70%', plugins: { legend: { position: 'bottom' } } }
+    });
+
+    const envCtx = document.getElementById('envChart').getContext('2d');
+    new Chart(envCtx, {
+        type: 'bar',
+        data: {
+            labels: [{% for env in env_data.keys() %}'{{ env }}',{% endfor %}],
+            datasets: [{
+                label: 'Broj uređaja',
+                data: [{% for count in env_data.values() %}{{ count }},{% endfor %}],
+                backgroundColor: '#0d6efd',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } },
+            plugins: { legend: { display: false } }
+        }
+    });
+});
+</script>
+
+<script>
+document.getElementById('syncDnsBtn').addEventListener('click', async function() {
+    const btn = this;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Syncing...';
+    try {
+        const response = await fetch('/api/sync-dns', { method: 'POST' });
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (error) {
+        alert('Request failed');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+});
+</script>
+
+{% endblock %}

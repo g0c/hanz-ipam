@@ -22,17 +22,19 @@
     <div class="card-body p-4">
         <div class="table-responsive">
             <table class="table table-hover align-middle w-100" id="devicesTable">
+
                 <thead class="table-light text-uppercase small fw-bold">
-                    <tr>
-                        <th class="ps-3">Hostname & MAC</th>
-                        <th>IP Adresa</th>
-                        <th>Subnet (Mreža)</th> <th>Okruženje</th>
-                        <th>Tip</th>
-                        <th class="text-center">Status</th>
-                        <th>Zadnji Put Viđen</th>
-                        <th class="text-end pe-3 no-sort">Akcije</th>
-                    </tr>
-                </thead>
+    <tr>
+        <th class="ps-3">Hostname & MAC</th>
+        <th>IP Adresa</th>
+        <th>Subnet (Mreža)</th> 
+        <th>Okruženje</th>
+        <th>Tip</th>
+        <th class="text-center">Status & Monitoring</th>
+        <th class="text-end pe-3 no-sort">Akcije</th>
+    </tr>
+</thead>
+
                 <tbody>
                     {% for d in devices %}
                     <tr>
@@ -70,29 +72,30 @@
                                 {{ d.device_type or 'Other' }}
                             </small>
                         </td>
-                        <td class="text-center">
-                            {% if d.status.value == 'active' %}
-                                <span class="badge rounded-pill bg-success px-3">
-                                    <i class="bi bi-circle-fill me-1 small"></i> Živo
-                                </span>
-                            {% elif d.status.value == 'offline' %}
-                                <span class="badge rounded-pill bg-danger px-3">
-                                    <i class="bi bi-circle-fill me-1 small"></i> Mrtvo
-                                </span>
-                            {% elif d.status.value == 'reserved' %}
-                                <span class="badge rounded-pill bg-warning text-dark px-3">
-                                    <i class="bi bi-lock-fill me-1 small"></i> Rezervirano
-                                </span>
-                            {% else %}
-                                <span class="badge rounded-pill bg-secondary px-3">Nepoznato</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="small text-muted">
-                                <i class="bi bi-clock-history me-1"></i>
-                                {{ d.last_seen.strftime("%d.%m.%Y %H:%M") if d.last_seen else 'Nikada' }}
-                            </div>
-                        </td>
+
+                        <td class="align-middle">
+    <div class="d-flex align-items-center mb-1">
+        {% if d.status.value == 'active' %}
+            <span class="status-indicator status-online" title="Uređaj je dostupan"></span>
+            <span class="fw-bold text-success small text-uppercase">Živo</span>
+        {% elif d.status.value == 'offline' %}
+            <span class="status-indicator status-offline" title="Uređaj nije dostupan"></span>
+            <span class="fw-bold text-danger small text-uppercase">Mrtvo</span>
+        {% elif d.status.value == 'reserved' %}
+            <span class="status-indicator status-reserved" title="IP adresa je rezervirana"></span>
+            <span class="fw-bold text-warning small text-uppercase">Rezervirano</span>
+        {% else %}
+            <span class="status-indicator status-unknown" title="Status nepoznat"></span>
+            <span class="text-muted small text-uppercase">Nepoznato</span>
+        {% endif %}
+    </div>
+    
+    <div class="last-seen-text">
+        <i class="bi bi-clock-history me-1"></i>
+        {{ d.last_seen.strftime("%d.%m.%Y %H:%M") if d.last_seen else 'Nikada viđen' }}
+    </div>
+    </td>
+
                         <td class="text-end pe-3">
                             <div class="btn-group shadow-sm border rounded">
                                 <a href="/devices/{{ d.id }}" class="btn btn-sm btn-white text-primary" title="Pregled"><i class="bi bi-eye-fill"></i></a>
@@ -158,7 +161,7 @@ $(document).ready(function() {
         ],
         "language": {
             "search": "_INPUT_",
-            "searchPlaceholder": "Pretraži (ili upiši 'Unmapped')...",
+            "searchPlaceholder": "Pretraži...",
             "info": "Prikazano _START_ do _END_ od ukupno _TOTAL_ uređaja",
             "paginate": { "next": "→", "previous": "←" }
         },
