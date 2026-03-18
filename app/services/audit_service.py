@@ -38,4 +38,4 @@ def cleanup_old_logs(db: Session, days: int = 30):
             print(f"Audit Cleanup: Obrisano {deleted_count} zapisa starijih od {days} dana.")
     except Exception as e:
         db.rollback()
-        print(f"Greška pri čišćenju audit logova: {e}")
+        print(f"Greška pri čišćenju zapisnika aktivnosti: {e}")

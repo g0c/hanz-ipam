@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+{% endblock %}
+
+{% block content %}
+<style>
+    /* Animacija za pulsiranje kockica dok ih skener provjerava */
+    @keyframes pulse-highlight {
+        0% { transform: scale(1); filter: brightness(1); }
+        50% { transform: scale(1.15); filter: brightness(1.4); z-index: 10; }
+        100% { transform: scale(1); filter: brightness(1); }
+    }
+    .box-scanning {
+        animation: pulse-highlight 0.6s ease-in-out;
+    }
+</style>
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-12">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white rounded shadow-sm border-start border-4 border-primary">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1 small text-uppercase fw-bold">
+                        <li class="breadcrumb-item"><a href="/subnets" class="text-decoration-none">Podmreže</a></li>
+                        <li class="breadcrumb-item active">{{ data.subnet.cidr }}</li>
+                    </ol>
+                </nav>
+                <h3 class="fw-bold mb-0">
+                    <i class="bi bi-layers-half text-primary me-2"></i>{{ data.subnet.name or 'Mrežni segment' }}
+                </h3>
+            </div>
+            <div class="d-flex gap-2">
+                <button onclick="startTurboScan({{ data.subnet.id }})" id="btnStartScan" class="btn btn-warning fw-bold shadow-sm">
+                    <i class="bi bi-cpu-fill me-1" id="radarIcon"></i>
+                    <span id="scanBtnText">Turbo Live Skeniranje</span>
+                </button>
+                <a href="/subnets" class="btn btn-outline-secondary">Natrag</a>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-grid-3x3-gap me-2"></i>Vizualni prikaz IP adresa</span>
+                <div class="d-flex gap-2 small">
+                    <span class="badge bg-success">Aktivna</span>
+                    <span class="badge bg-light text-dark border">Slobodna</span>
+                    <span class="badge bg-info">Rezervirana</span>
+                </div>
+            </div>
+     
+            <div class="card-body bg-light">
+                <div class="ip-grid" id="ipGridContainer">
+                    {% for item in data.map %}
+                    <div class="ip-box-wrapper" data-bs-toggle="tooltip" 
+                         title="{{ item.ip }}{% if item.get('status') == 'reserved' %} (REZERVIRANO){% endif %}">
+                        
+                        {# Komentar: Određivanje prioriteta boja: Reserved > Used > Free #}
+                        {% set current_status = item.status.value if item.status and item.status.value is defined else item.status %}
+                        
+                        <div class="ip-box 
+                            {% if current_status == 'reserved' or item.type != 'host' %}
+                                ip-reserved
+                            {% elif item.is_used %}
+                                ip-used
+                            {% else %}
+                                ip-free
+                            {% endif %} cursor-pointer" 
+                            id="ip-{{ item.ip | replace('.', '-') }}"
+                            onclick="showDeviceDetails('{{ item.ip }}')">
+                            {{ item.ip.split('.')[-1] }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm bg-black text-light overflow-hidden" id="terminalCard" style="display: none;">
+            <div class="card-header bg-dark d-flex justify-content-between align-items-center py-2">
+                <span class="small fw-bold text-success font-monospace">TURBO_DISCOVERY_ENGINE</span>
+                <span class="badge bg-danger pulse-dot" id="liveBadge">SKENIRAM...</span>
+            </div>
+            <div class="card-body p-3" id="scanTerminal" 
+                 style="height: 250px; overflow-y: auto; background: #0c0c0c; font-family: monospace; font-size: 0.85rem;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deviceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cpu me-2"></i>Detalji uređaja</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="modalContent"></div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zatvori</button>
+                <button type="button" class="btn btn-primary fw-bold" id="editDeviceBtn" style="display:none;">Uredi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let socket;
+let safetyTimer;
+
+function startTurboScan(subnetId) {
+    const btn = document.getElementById('btnStartScan');
+    const btnText = document.getElementById('scanBtnText');
+    const consoleDiv = document.getElementById('scanTerminal');
+    const terminalCard = document.getElementById('terminalCard');
+    
+    if (!btn || !consoleDiv) {
+        console.error("Greška: Nisu pronađeni UI elementi!");
+        return;
+    }
+
+    const originalHtml = btn.innerHTML;
+    
+    // Prikaz terminala
+    terminalCard.style.display = 'block';
+    btn.disabled = true;
+    btnText.innerText = 'Skeniram...';
+    
+    // Komentar: Potpuno nova, neuništiva funkcija za ispis koja stvara <p> tagove
+    // i koristi requestAnimationFrame kako ne bi zaledila preglednik.
+    function ispišiULog(tekst, boja) {
+        const linija = document.createElement('p');
+        linija.style.color = boja;
+        linija.style.margin = '0'; // Uklanja razmak između linija
+        linija.style.padding = '0';
+        linija.innerHTML = tekst;
+        consoleDiv.appendChild(linija);
+        
+        // Optimizirano skrolanje
+        requestAnimationFrame(() => {
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        });
+    }
+
+    // Očisti terminal i ispiši početak
+    consoleDiv.innerHTML = '';
+    ispišiULog('> Inicijalizacija Turbo Engine-a...', '#00ff41');
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/discovery/${subnetId}`;
+    
+    ispišiULog(`> Spajanje na: ${wsUrl}`, '#aaaaaa');
+    
+    try {
+        socket = new WebSocket(wsUrl);
+    } catch (err) {
+        ispišiULog(`> KRITIČNA GREŠKA WEBSOCKETA: ${err}`, '#ff3333');
+        return;
+    }
+
+    socket.onopen = function() {
+        ispišiULog('> [OK] Tunel otvoren! Čekam server...', '#00ff41');
+    };
+
+    safetyTimer = setTimeout(() => {
+        if (btn.disabled) {
+            ispišiULog('> [TIMEOUT] Server ne odgovara (120s). Prekidam.', '#ff3333');
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            if(socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+        }
+    }, 120000);
+
+    socket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+
+        if (data.type === 'start') {
+            ispišiULog(`> Skeniranje ${data.total} adresa započeto...`, '#ffc107');
+        }
+
+        if (data.type === 'result') {
+            if (data.is_online) {
+                ispišiULog(`<b>[OK]</b> ${data.ip} je AKTIVAN.`, '#00ff41');
+            } else {
+                ispišiULog(`[--] ${data.ip} nema odgovora.`, '#aaaaaa');
+            }
+
+            const boxId = `ip-${data.ip.replace(/\./g, '-')}`;
+            const box = document.getElementById(boxId);
+
+            if (box) {
+                box.classList.remove('ip-used', 'ip-free');
+                box.classList.add('box-scanning');
+                
+                if (data.is_online) {
+                    box.classList.add('ip-used');
+                } else {
+                    box.classList.add('ip-free');
+                }
+
+                setTimeout(() => box.classList.remove('box-scanning'), 600);
+            }
+        }
+
+        if (data.type === 'finish') {
+            clearTimeout(safetyTimer);
+            ispišiULog('> Skeniranje uspješno završeno!', '#00bfff');
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Sinkronizirano!',
+                    text: 'Sve adrese su provjerene.',
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => location.reload());
+            } else {
+                alert("Skeniranje završeno!");
+                location.reload();
+            }
+        }
+
+        if (data.type === 'error') {
+            ispišiULog(`> SERVER GREŠKA: ${data.message}`, '#ff3333');
+        }
+    };
+
+    socket.onerror = function(err) {
+        clearTimeout(safetyTimer);
+        ispišiULog('> [GREŠKA] Mreža ili Apache blokira vezu.', '#ff3333');
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    };
+    
+    socket.onclose = function() {
+        ispišiULog('> WebSocket veza zatvorena.', '#aaaaaa');
+    };
+}
+
+function showDeviceDetails(ip) {
+    const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
+    const container = document.getElementById('modalContent');
+    const editBtn = document.getElementById('editDeviceBtn');
+    
+    modal.show();
+    container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+
+    fetch(`/devices/details/${ip}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.exists) {
+                let statusBadge = (data.status === 'reserved' || data.status === 'Reserved') ? 'bg-info text-dark' : 'bg-success';
+                container.innerHTML = `
+                    <h4 class="text-primary fw-bold mb-3">${data.ip}</h4>
+                    <hr>
+                    <div class="row g-3">
+                        <div class="col-6"><strong>Hostname:</strong><br>${data.hostname}</div>
+                        <div class="col-6"><strong>Status:</strong><br><span class="badge ${statusBadge}">${data.status}</span></div>
+                        <div class="col-12"><strong>MAC Adresa:</strong><br><span class="font-monospace">${data.mac_address}</span></div>
+                        <div class="col-12 text-muted small"><strong>Zadnji put viđen:</strong><br>${data.last_seen}</div>
+                    </div>
+                `;
+                editBtn.style.display = 'block';
+                editBtn.innerText = 'Uredi';
+                editBtn.className = 'btn btn-primary fw-bold';
+                editBtn.onclick = () => window.location.href = `/devices/${data.id}/edit`;
+            } else {
+                container.innerHTML = `
+                    <div class="text-center py-3">
+                        <i class="bi bi-plus-circle text-muted display-4"></i>
+                        <h5 class="mt-3">Slobodna adresa</h5>
+                        <p class="text-muted">IP <strong>${ip}</strong> je trenutno slobodan.</p>
+                    </div>
+                `;
+                editBtn.style.display = 'block';
+                editBtn.innerText = 'Dodaj uređaj';
+                editBtn.className = 'btn btn-success fw-bold';
+                editBtn.onclick = () => window.location.href = `/devices/add?ip=${ip}&subnet_id={{ data.subnet.id }}`;
+            }
+        })
+        .catch(err => {
+            container.innerHTML = '<div class="alert alert-danger">Greška pri dohvaćanju podataka sa servera.</div>';
+        });
+}
+</script>
+{% endblock %}

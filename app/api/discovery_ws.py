@@ -1,38 +1,41 @@
-# v1.1.1
-# WebSocket ruter za Turbo Scan - Optimiziran za stabilnost baze.
-# Smanjen broj istovremenih pingova kako bi se izbjegao Database Lock.
-
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+# app/api/discovery_ws.py
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
 import json
-from app.core.db import SessionLocal
-from app.services import discovery_service
-from app.core.models import Subnet
 import ipaddress
+
+from app.core.db import SessionLocal
+from app.core.models import Subnet
+from app.services import discovery_service
 
 router = APIRouter()
 
-# v1.1.2
-# Turbo Scan WebSocket - "Hardened" verzija.
-# Osigurano slanje 'finish' signala čak i u slučaju grešaka.
-
+# RUTA MORA BITI /ws/discovery/
 @router.websocket("/ws/discovery/{subnet_id}")
 async def websocket_discovery(websocket: WebSocket, subnet_id: int):
     await websocket.accept()
+    
     db = SessionLocal()
     try:
-        # ... (kod za dohvaćanje subneta ostaje isti) ...
+        # OVA LINIJA JE BILA PROBLEM - Sada je tu!
+        subnet = db.query(Subnet).filter(Subnet.id == subnet_id).first()
+        
+        if not subnet:
+            await websocket.send_text(json.dumps({"type": "error", "message": "Subnet nije pronađen."}))
+            return
+
         network = ipaddress.ip_network(subnet.cidr)
         hosts = [str(ip) for ip in network.hosts()]
+        
         await websocket.send_text(json.dumps({"type": "start", "total": len(hosts)}))
 
         semaphore = asyncio.Semaphore(20)
         tasks = [discovery_service.async_ping(ip, semaphore) for ip in hosts]
 
-        # KOMENTAR: Koristimo wait_for da cijeli scan ne može trajati vječno (npr. max 5 min za /24)
         try:
             for task in asyncio.as_completed(tasks):
                 ip, is_online = await task
+                
                 try:
                     discovery_service.process_scan_result(db, ip, is_online, subnet_id)
                     db.commit()
@@ -45,17 +48,21 @@ async def websocket_discovery(websocket: WebSocket, subnet_id: int):
                     "ip": ip,
                     "is_online": is_online
                 }))
+                
                 await asyncio.sleep(0.01)
+                
         except Exception as loop_err:
             print(f"Loop Error: {loop_err}")
 
-        # KOMENTAR: Ovo MURA biti izvan petlje da bi klijent dobio obavijest o kraju
         await websocket.send_text(json.dumps({"type": "finish"}))
 
+    except WebSocketDisconnect:
+        print(f"[*] Korisnik napustio scan subneta {subnet_id}")
     except Exception as e:
         print(f"WS Critical: {e}")
         try:
             await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
-        except: pass
+        except: 
+            pass
     finally:
         db.close()

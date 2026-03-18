@@ -3,7 +3,7 @@
 
 <div class="row mb-4 align-items-center">
     <div class="col">
-        <h2 class="fw-bold text-dark"><i class="bi bi-journal-text me-2 text-primary"></i>Audit Log</h2>
+        <h2 class="fw-bold text-dark"><i class="bi bi-journal-text me-2 text-primary"></i>Zapisnik aktivnosti</h2>
         <p class="text-muted">Povijest svih promjena, mrežnih otkrića i korisničkih akcija.</p>
     </div>
     <div class="col-auto">
@@ -42,13 +42,13 @@
                         </td>
                         <td>
                             {% if log.action == 'DISCOVERY' %}
-                                <span class="badge bg-info text-dark fw-bold"><i class="bi bi-radar me-1"></i> DISCOVERY</span>
+                                <span class="badge bg-info text-dark fw-bold"><i class="bi bi-radar me-1"></i> OTKRIĆE</span>
                             {% elif log.action == 'CREATE' %}
-                                <span class="badge bg-success fw-bold">CREATE</span>
+                                <span class="badge bg-success fw-bold">KREIRANJE</span>
                             {% elif log.action == 'UPDATE' %}
-                                <span class="badge bg-primary fw-bold">UPDATE</span>
+                                <span class="badge bg-primary fw-bold">AŽURIRANJE</span>
                             {% elif log.action == 'DELETE' %}
-                                <span class="badge bg-danger fw-bold">DELETE</span>
+                                <span class="badge bg-danger fw-bold">BRISANJE</span>
                             {% elif log.action == 'STATUS_CHANGE' %}
                                 <span class="badge bg-warning text-dark fw-bold">STATUS</span>
                             {% else %}
