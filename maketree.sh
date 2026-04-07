@@ -1,0 +1,1 @@
+tree -I "__pycache__|.git|venv|env|.pytest_cache" -L 3

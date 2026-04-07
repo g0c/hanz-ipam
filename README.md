@@ -17,8 +17,6 @@
 │   │   ├── security.py
 │   │   └── ui.py
 │   ├── __init__.py
-│   ├── main copy 2.py
-│   ├── main copy.py
 │   ├── main.py
 │   ├── scripts
 │   │   ├── create_admin.py
@@ -29,18 +27,17 @@
 │   │   ├── device_service.py
 │   │   ├── discovery_service.py
 │   │   ├── dns_service.py
+│   │   ├── dns_sync copy 2.py
+│   │   ├── dns_sync copy.py
 │   │   ├── dns_sync.py
 │   │   ├── flash.py
 │   │   ├── __init__.py
 │   │   ├── monitor.py
 │   │   ├── monitor_service.py
-│   │   ├── subnet_service copy.py
 │   │   ├── subnet_service.py
 │   │   └── validate.py
 │   ├── static
 │   │   ├── img
-│   │   │   ├── icon.svg
-│   │   │   └── network-background.svg
 │   │   └── style.css
 │   └── templates
 │       ├── audit_list.html
@@ -49,25 +46,30 @@
 │       ├── devices_edit.html
 │       ├── devices_list.html
 │       ├── devices_view.html
+│       ├── home copy.html
 │       ├── home.html
 │       ├── login.html
 │       ├── subnets_edit.html
 │       ├── subnets_list.html
-│       └── subnets_view.html
+│       ├── subnets_view.html
+│       └── subnets_viewx.html
 ├── backup.py
 ├── backups
-│   ├── ipam_backup_2026-03-02_10-24-34.tar.gz
-│   ├── ipam_backup_2026-03-03_11-14-52.tar.gz
-│   ├── ipam_backup_2026-03-16_12-34-30.tar.gz
-│   ├── ipam_backup_2026-03-17_11-52-51.tar.gz
-│   └── ipam_backup_2026-03-17_13-24-44.tar.gz
+│   ├── cron_backup.log
+│   ├── ipam_backup_2026-03-31_02-00-03.tar.gz
+│   ├── ipam_backup_2026-04-01_02-00-03.tar.gz
+│   ├── ipam_backup_2026-04-02_02-00-02.tar.gz
+│   ├── ipam_backup_2026-04-03_02-00-03.tar.gz
+│   ├── ipam_backup_2026-04-04_02-00-03.tar.gz
+│   ├── ipam_backup_2026-04-05_02-00-03.tar.gz
+│   ├── ipam_backup_2026-04-06_02-00-02.tar.gz
+│   └── ipam_backup_2026-04-07_02-00-03.tar.gz
+├── cookies.txt
 ├── init_db.py
 ├── README.md
 ├── requirements.txt
+├── restart.sh
 ├── test_ad.py
-├── test_dns.py
-├── test_login.sh
-├── test_mapping.py
-└── tree.txt
+└── test_dns.py
 
-9 directories, 61 files
+10 directories, 63 files
