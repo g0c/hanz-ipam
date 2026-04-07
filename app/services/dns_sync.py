@@ -1,7 +1,9 @@
-# v1.1.73
-# DNS Sync Engine - Implementirana faza usklađivanja (brisanje nepostojećih DNS zapisa).
+# v1.1.77
+# DNS Sync Engine - KONAČNO RJEŠENJE: Native MySQL "ON DUPLICATE KEY UPDATE"
+# Zaobilazimo SQLAlchemy Session cache kako bi MySQL baza sama riješila upsert bez grešaka.
 
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.mysql import insert  # KOMENTAR: Uvozimo MySQL specifičnu naredbu
 from datetime import datetime
 import ipaddress
 
@@ -35,7 +37,7 @@ def map_devices_to_subnets(db: Session):
 
 def run_dns_sync(db: Session):
     """
-    KOMENTAR: Sinkronizira DNS zone i uklanja zapise iz baze koji više ne postoje u DNS-u.
+    KOMENTAR: Sinkronizira DNS koristeći izvorni MySQL Upsert.
     """
     dns_zones = [zone.strip() for zone in settings.AD_DNS_ZONES.split(',')]
     
@@ -44,78 +46,90 @@ def run_dns_sync(db: Session):
     total_deleted = 0
     now = datetime.now()
     
-    # KOMENTAR: Set u koji spremamo sve IP adrese pronađene u DNS-u tijekom skeniranja
     active_dns_ips = set()
 
-    # --- 1. FAZA: AŽURIRANJE I DODAVANJE ---
+    # --- 1. FAZA: AŽURIRANJE I DODAVANJE (MySQL Native Upsert) ---
     for zone in dns_zones:
         records = fetch_dns_records(zone)
         
         for rec in records:
-            hostname = rec["hostname"].rstrip('.')
-            ip_val = rec["ip"]
+            hostname = str(rec["hostname"]).strip().rstrip('.')
+            raw_ip = str(rec["ip"]).strip()
 
-            # Filtriranje sistemskih i nepotrebnih zapisa
+            try:
+                ip_obj = ipaddress.ip_address(raw_ip)
+                ip_val = str(ip_obj)
+            except ValueError:
+                continue
+
             if any(x in hostname.lower() for x in ["@", "*", "msdcs", "_udp", "_tcp"]):
                 continue
 
-            active_dns_ips.add(ip_val)
+            # I dalje filtriramo duplikate iz samog DNS-a unutar istog skeniranja
+            if ip_val in active_dns_ips:
+                continue
 
-            device = db.query(Device).filter(Device.ip_addr == ip_val).first()
+            active_dns_ips.add(ip_val)
             detected_type = "Gateway" if ip_val.endswith(".1") else "Server"
 
-            if device:
-                # Ažuriranje postojećeg uređaja
-                device.last_seen = now
-                device.updated_by = "DNS_SYNC"
-                
-                if ip_val.endswith(".1") and device.device_type != "Gateway":
-                    device.device_type = "Gateway"
+            # KOMENTAR: Konstruiramo MySQL specifičnu INSERT naredbu
+            stmt = insert(Device).values(
+                ip_addr=ip_val,
+                hostname=hostname,
+                status=DeviceStatus.active,
+                environment="PROD",
+                device_type=detected_type,
+                last_seen=now,
+                created_by="DNS_SYNC",
+                updated_by="DNS_SYNC"
+            )
 
-                if not device.hostname or "unknown" in device.hostname.lower():
-                    device.hostname = hostname
-                total_updated += 1
-            else:
-                # Kreiranje novog uređaja
-                new_device = Device(
-                    ip_addr=ip_val,
-                    hostname=hostname,
-                    status=DeviceStatus.active,
-                    environment="PROD",
-                    device_type=detected_type,
-                    last_seen=now,
-                    created_by="DNS_SYNC",
-                    updated_by="DNS_SYNC"
-                )
-                db.add(new_device)
+            # KOMENTAR: Definiramo što se događa ako MySQL detektira Duplicate Entry grešku
+            update_dict = {
+                "hostname": stmt.inserted.hostname,
+                "last_seen": stmt.inserted.last_seen,
+                "updated_by": "DNS_SYNC"
+            }
+            
+            if ip_val.endswith(".1"):
+                update_dict["device_type"] = "Gateway"
+
+            on_duplicate_stmt = stmt.on_duplicate_key_update(**update_dict)
+
+            # KOMENTAR: Izvršavamo izravno u bazi, zaobilazeći Pythonov ORM session cache!
+            result = db.execute(on_duplicate_stmt)
+            
+            # U MySQL-u: rowcount 1 znači Insert, rowcount 2 znači Update
+            if result.rowcount == 1:
                 total_added += 1
+            else:
+                total_updated += 1
     
-    # Flush da osiguramo da su novi uređaji u sesiji prije čišćenja
-    db.flush()
+    # Ovdje radimo commit svih izvršenih naredbi prije čišćenja
+    db.commit()
 
     # --- 2. FAZA: ČIŠĆENJE (RECONCILIATION) ---
-    # KOMENTAR: Tražimo uređaje koje je kreirao DNS_SYNC, a kojih NEMA u aktivnom DNS-u
-    stale_devices = db.query(Device).filter(
-        Device.created_by == "DNS_SYNC",
-        ~Device.ip_addr.in_(list(active_dns_ips))
-    ).all()
+    # KOMENTAR: Sigurnosna provjera - brišemo samo ako smo uspjeli pročitati barem nešto iz DNS-a
+    if active_dns_ips:  
+        stale_devices = db.query(Device).filter(
+            Device.created_by == "DNS_SYNC",
+            ~Device.ip_addr.in_(list(active_dns_ips))
+        ).all()
 
-    for stale_dev in stale_devices:
-        # KOMENTAR: Bilježimo brisanje u Audit Log prije samog uklanjanja
-        audit_service.log_event(
-            db,
-            username="DNS_SYNC",
-            action="DELETE",
-            target_type="DEVICE",
-            target_id=stale_dev.id,
-            details=f"Uređaj {stale_dev.hostname} ({stale_dev.ip_addr}) automatski uklonjen - ne postoji u DNS-u.",
-            source_ip="127.0.0.1"
-        )
-        
-        db.delete(stale_dev)
-        total_deleted += 1
+        for stale_dev in stale_devices:
+            audit_service.log_event(
+                db,
+                username="DNS_SYNC",
+                action="DELETE",
+                target_type="DEVICE",
+                target_id=stale_dev.id,
+                details=f"Uređaj {stale_dev.hostname} ({stale_dev.ip_addr}) automatski uklonjen - ne postoji u DNS-u.",
+                source_ip="127.0.0.1"
+            )
+            db.delete(stale_dev)
+            total_deleted += 1
 
-    db.commit()
+        db.commit()
 
     # --- 3. FAZA: MAPIRANJE ---
     mapped = map_devices_to_subnets(db)

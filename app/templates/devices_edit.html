@@ -102,14 +102,21 @@
 
                     <hr>
 
-                    <div class="d-flex justify-content-between align-items-center">
-                        <a href="/devices/{{ dev.id }}" class="btn btn-outline-secondary px-4">
-                            <i class="bi bi-arrow-left me-1"></i>Natrag na detalje
-                        </a>
+                    <div class="d-flex justify-content-between align-items-center w-100">
+                        <div>
+                            <a href="/devices/{{ dev.id }}" class="btn btn-outline-secondary px-4">
+                                <i class="bi bi-arrow-left me-1"></i>Natrag
+                            </a>
+                            <button type="button" onclick="confirmDelete({{ dev.id }})" class="btn btn-outline-danger ms-2">
+                                <i class="bi bi-trash me-1"></i>Obriši / Oslobodi IP
+                            </button>
+                        </div>
+
                         <button type="submit" id="submitBtn" class="btn btn-success px-5 fw-bold shadow-sm">
                             <i class="bi bi-check2-circle me-2"></i>Spremi promjene
                         </button>
                     </div>
+
                 </form>
 
             </div>
@@ -159,4 +166,29 @@ $(document).ready(function() {
     if($ipInput.val()) checkIpScream();
 });
 </script>
+
+<script>
+function confirmDelete(deviceId) {
+    Swal.fire({
+        title: 'Jesi li siguran?',
+        text: "Obrisat ćeš ovaj uređaj i osloboditi IP adresu!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Da, obriši!',
+        cancelButtonText: 'Odustani'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Kreiramo privremenu formu za slanje POST zahtjeva za brisanje
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/devices/${deviceId}/delete`;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    })
+}
+</script>
+
 {% endblock %}

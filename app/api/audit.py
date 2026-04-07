@@ -34,9 +34,6 @@ def list_audit_logs(
     # KOMENTAR: Dohvaćanje preostalih zapisa (najnoviji prvi)
     logs = db.query(AuditLog).order_by(AuditLog.timestamp.desc()).all()
     
-    return templates.TemplateResponse("audit_list.html", {
-        "request": request,
-        "user": user,
+    return templates.TemplateResponse(request=request, name="audit_list.html", context={"user": user,
         "logs": logs,
-        "title": "Audit Logs"
-    })
+        "title": "Audit Logs"})

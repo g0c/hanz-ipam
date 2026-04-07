@@ -171,14 +171,11 @@ async def dashboard_view(request: Request, db: Session = Depends(get_db), user: 
     total_capacity = count_subnets * 254 if count_subnets > 0 else 1
     usage_percentage = round((count_devices / total_capacity) * 100, 1)
 
-    return templates.TemplateResponse("home.html", {
-        "request": request, 
-        "user": user, 
+    return templates.TemplateResponse(request=request, name="home.html", context={"user": user, 
         "device_count": count_devices,
         "subnet_count": count_subnets, 
         "status_data": status_data,
         "env_data": env_data, 
         "backup_info": get_last_backup_status(),
         "recent_logs": recent_logs, 
-        "usage_percentage": usage_percentage
-    })
+        "usage_percentage": usage_percentage})

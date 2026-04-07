@@ -1,11 +1,10 @@
-# v1.1.37
-# Ruter za uređaje - Fixed: Uklonjen **kwargs koji je uzrokovao validation error.
-# Sva polja forme su sada eksplicitno navedena.
+# v1.1.39
+# Ruter za uređaje - Ispravljen problem s validacijom forme (422 Unprocessable Entity)
 
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, Annotated # Dodano Annotated za bolju validaciju
 
 from app.api.dependencies import get_current_user, get_db
 from app.services import device_service, subnet_service
@@ -52,9 +51,27 @@ def list_devices(request: Request, status: Optional[str] = None, db: Session = D
     if status:
         query = query.filter(Device.status == status)
     devices = query.all()
-    return templates.TemplateResponse("devices_list.html", {"request": request, "devices": devices, "user": user, "active_filter": status})
+    return templates.TemplateResponse(request=request, name="devices_list.html", context={"devices": devices, "user": user, "active_filter": status})
 
-# --- DODAVANJE UREĐAJA ---
+
+# --- PRIKAZ FORME ZA DODAVANJE UREĐAJA (OVO JE FALILO) ---
+@router.get("/add")
+def add_device_form(
+    request: Request, 
+    ip: Optional[str] = None, 
+    subnet_id: Optional[int] = None, 
+    db: Session = Depends(get_db), 
+    user=Depends(get_current_user)
+):
+    # Komentar: Dohvaćamo podmreže za dropdown izbornik i prosljeđujemo IP da se forma unaprijed popuni
+    subnets = db.query(subnet_service.Subnet).all()
+    return templates.TemplateResponse(request=request, name="devices_add.html", context={"user": user, 
+        "subnets": subnets,
+        "prefill_ip": ip,
+        "prefill_subnet": subnet_id})
+
+
+# --- DODAVANJE UREĐAJA U BAZU ---
 @router.post("/add")
 def add_device(
     request: Request,
@@ -87,60 +104,79 @@ def add_device(
     except Exception as e:
         db.rollback()
         subnets = db.query(subnet_service.Subnet).all()
-        return templates.TemplateResponse("devices_add.html", {"request": request, "user": user, "error": str(e), "subnets": subnets})
+        return templates.TemplateResponse(request=request, name="devices_add.html", context={"user": user, "error": str(e), "subnets": subnets})
 
-# --- UREĐIVANJE UREĐAJA (Ovdje je bio bug) ---
+# --- UREĐIVANJE UREĐAJA (POST) ---
+# Ova ruta prima podatke iz HTML forme i ažurira bazu
 @router.post("/{device_id}/edit")
 def update_device(
     device_id: int,
     request: Request,
-    hostname: str = Form(...),
-    ip_addr: str = Form(...),
-    status: str = Form(...),
-    device_type: Optional[str] = Form(None),
-    environment: Optional[str] = Form(None),
-    mac: Optional[str] = Form(None),
-    location: Optional[str] = Form(None),
-    description: Optional[str] = Form(None),
-    subnet_id: Optional[int] = Form(None),
+    # Primamo kao Optional[str] da izbjegnemo Pydantic 422 grešku ako je polje prazno
+    hostname: Annotated[Optional[str], Form()] = None,
+    ip_addr: Annotated[Optional[str], Form()] = None,
+    status: Annotated[Optional[str], Form()] = "unknown",
+    device_type: Annotated[Optional[str], Form()] = None,
+    environment: Annotated[Optional[str], Form()] = None,
+    mac: Annotated[Optional[str], Form()] = None,
+    location: Annotated[Optional[str], Form()] = None,
+    description: Annotated[Optional[str], Form()] = None,
+    subnet_id: Annotated[Optional[str], Form()] = None,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user)
+    user = Depends(get_current_user)
 ):
     try:
-        # KOMENTAR: Eksplicitno prosljeđujemo sva polja servisu
+        # 1. Validacija: Hostname i IP ne smiju biti stvarno None ili samo razmaci
+        if not hostname or not hostname.strip():
+            # Ako je prazno, možemo vratiti grešku ili staviti fallback
+            return flash(RedirectResponse(url=f"/devices/{device_id}/edit", status_code=303), "Greška: Hostname je obavezan!")
+        
+        if not ip_addr or not ip_addr.strip():
+            return flash(RedirectResponse(url=f"/devices/{device_id}/edit", status_code=303), "Greška: IP adresa je obavezna!")
+
+        # 2. Čišćenje podataka (Empty String -> None)
+        clean_subnet_id = int(subnet_id) if subnet_id and subnet_id.strip() else None
+        clean_mac = mac.strip() if mac and mac.strip() else None
+        
+        # 3. Poziv servisa
         device_service.update_device(
             db, 
             device_id=device_id, 
-            hostname=hostname, 
-            ip_addr=ip_addr, 
+            hostname=hostname.strip(), 
+            ip_addr=ip_addr.strip(), 
             status=status,
             device_type=device_type,
             environment=environment,
-            mac=mac,
+            mac=clean_mac,
             location=location,
             description=description,
             updated_by=user.username,
-            subnet_id=subnet_id
+            subnet_id=clean_subnet_id
         )
+        
         resp = RedirectResponse(url=f"/devices/{device_id}", status_code=303)
-        return flash(resp, "Promjene su uspješno spremljene!")
+        return flash(resp, "Uređaj uspješno ažuriran!")
+        
     except Exception as e:
         db.rollback()
-        return flash(RedirectResponse(url=f"/devices/{device_id}/edit", status_code=303), f"Greška: {str(e)}")
+        return flash(RedirectResponse(url=f"/devices/{device_id}/edit", status_code=303), f"Sustavna greška: {str(e)}")
+
+
+
 
 # --- OSTALE RUTE ---
 @router.get("/{device_id}")
 def view_device(device_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     dev = device_service.get_device(db, device_id)
     if not dev: raise HTTPException(status_code=404)
-    return templates.TemplateResponse("devices_view.html", {"request": request, "dev": dev, "user": user})
+    return templates.TemplateResponse(request=request, name="devices_view.html", context={"dev": dev, "user": user})
 
 @router.get("/{device_id}/edit")
 def edit_device_form(device_id: int, request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     dev = device_service.get_device(db, device_id)
     if not dev: raise HTTPException(status_code=404)
     subnets = db.query(subnet_service.Subnet).all()
-    return templates.TemplateResponse("devices_edit.html", {"request": request, "dev": dev, "user": user, "subnets": subnets})
+    return templates.TemplateResponse(request=request, name="devices_edit.html", context={"dev": dev, "user": user, "subnets": subnets})
 
 @router.post("/{device_id}/delete")
 def delete_device(device_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):

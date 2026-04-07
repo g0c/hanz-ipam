@@ -30,11 +30,8 @@ def trigger_scan(subnet_id: int, background_tasks: BackgroundTasks, db: Session 
 def list_subnets(request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
     # Dohvaćanje svih podmreža s izračunatim postotkom iskorištenja
     subnets = subnet_service.get_subnets_with_usage(db)
-    return templates.TemplateResponse("subnets_list.html", {
-        "request": request,
-        "subnets": subnets,
-        "user": user
-    })
+    return templates.TemplateResponse(request=request, name="subnets_list.html", context={"subnets": subnets,
+        "user": user})
 
 # --- DODAVANJE NOVE PODMREŽE ---
 @router.post("/add")
@@ -66,20 +63,14 @@ def add_subnet(
     except ValueError:
         # Greška ako CIDR nije ispravan (npr. 192.168.1.5/24 umjesto .0/24)
         subnets = subnet_service.get_subnets_with_usage(db)
-        return templates.TemplateResponse("subnets_list.html", {
-            "request": request,
-            "subnets": subnets,
+        return templates.TemplateResponse(request=request, name="subnets_list.html", context={"subnets": subnets,
             "user": user,
-            "error": "Neispravna CIDR notacija! Provjerite bazu mreže (npr. .0/24)."
-        })
+            "error": "Neispravna CIDR notacija! Provjerite bazu mreže (npr. .0/24)."})
     except Exception as e:
         subnets = subnet_service.get_subnets_with_usage(db)
-        return templates.TemplateResponse("subnets_list.html", {
-            "request": request,
-            "subnets": subnets,
+        return templates.TemplateResponse(request=request, name="subnets_list.html", context={"subnets": subnets,
             "user": user,
-            "error": f"Greška pri spremanju: {str(e)}"
-        })
+            "error": f"Greška pri spremanju: {str(e)}"})
 
 # --- VIZUALNI PREGLED (IP MAPA) ---
 @router.get("/{subnet_id}")
@@ -89,11 +80,8 @@ def view_subnet(subnet_id: int, request: Request, db: Session = Depends(get_db),
     if not data:
         raise HTTPException(status_code=404, detail="Podmreža nije pronađena")
         
-    return templates.TemplateResponse("subnets_view.html", {
-        "request": request,
-        "data": data,
-        "user": user
-    })
+    return templates.TemplateResponse(request=request, name="subnets_view.html", context={"data": data,
+        "user": user})
 
 # --- UREĐIVANJE PODMREŽE ---
 @router.get("/{subnet_id}/edit")
@@ -102,11 +90,8 @@ def edit_subnet_form(subnet_id: int, request: Request, db: Session = Depends(get
     if not subnet:
         raise HTTPException(status_code=404, detail="Podmreža nije pronađena")
         
-    return templates.TemplateResponse("subnets_edit.html", {
-        "request": request,
-        "subnet": subnet,
-        "user": user
-    })
+    return templates.TemplateResponse(request=request, name="subnets_edit.html", context={"subnet": subnet,
+        "user": user})
 
 @router.post("/{subnet_id}/edit")
 def update_subnet(
@@ -128,9 +113,6 @@ def update_subnet(
         
     except Exception as e:
         subnet = subnet_service.get_subnet(db, subnet_id)
-        return templates.TemplateResponse("subnets_edit.html", {
-            "request": request,
-            "subnet": subnet,
+        return templates.TemplateResponse(request=request, name="subnets_edit.html", context={"subnet": subnet,
             "user": user,
-            "error": f"Ažuriranje neuspješno: {str(e)}"
-        })
+            "error": f"Ažuriranje neuspješno: {str(e)}"})

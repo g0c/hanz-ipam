@@ -163,7 +163,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// KOMENTAR: Inicijalizacija Chart.js grafova prilikom učitavanja dokumenta
 $(document).ready(function() {
     new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',
@@ -204,7 +203,7 @@ $(document).ready(function() {
     });
 });
 
-// KOMENTAR: Logika za automatsko osvježavanje stranice i timer
+// AUTO-REFRESH TIMER LOGIC
 let timeLeft = 60;
 const countdownEl = document.getElementById('countdownText');
 const refreshTimerContainer = document.getElementById('refreshTimerContainer');
@@ -228,19 +227,8 @@ let refreshInterval = setInterval(() => {
     }
 }, 1000);
 
-// KOMENTAR: Varijabla za apsolutnu zaštitu od dvostrukog klika na frontend strani
-let isSyncing = false;
-
-// KOMENTAR: Logika za ručno pokretanje DNS sinkronizacije
-document.getElementById('syncDnsBtn').addEventListener('click', async function(e) {
-    e.preventDefault(); // Sprječava defaultnu akciju gumba
-    
-    if (isSyncing) {
-        console.warn("Sinkronizacija je već u tijeku, ignoriram klik.");
-        return;
-    }
-    
-    isSyncing = true;
+// DNS SYNC LOGIC 
+document.getElementById('syncDnsBtn').addEventListener('click', async function() {
     const btn = this;
     const originalHtml = btn.innerHTML;
     
@@ -288,7 +276,6 @@ document.getElementById('syncDnsBtn').addEventListener('click', async function(e
             if (timeLeft <= 0) window.location.reload();
         }, 1000);
     } finally {
-        isSyncing = false;
         btn.disabled = false;
         btn.innerHTML = originalHtml;
     }

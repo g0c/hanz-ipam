@@ -25,12 +25,9 @@ def list_users(
         return RedirectResponse(url="/", status_code=303)
     
     users = db.query(User).all()
-    return templates.TemplateResponse("users_list.html", {
-        "request": request,
-        "user": current_user,
+    return templates.TemplateResponse(request=request, name="users_list.html", context={"user": current_user,
         "users": users,
-        "title": "User Management"
-    })
+        "title": "User Management"})
 
 @router.get("/add")
 def add_user_page(request: Request, current_user: User = Depends(get_current_user)):
@@ -38,11 +35,8 @@ def add_user_page(request: Request, current_user: User = Depends(get_current_use
     if current_user.role != "admin":
         return RedirectResponse(url="/", status_code=303)
         
-    return templates.TemplateResponse("users_add.html", {
-        "request": request, 
-        "user": current_user, 
-        "title": "Add User"
-    })
+    return templates.TemplateResponse(request=request, name="users_add.html", context={"user": current_user, 
+        "title": "Add User"})
 
 @router.post("/add")
 def create_user(
@@ -60,11 +54,8 @@ def create_user(
 
     existing = db.query(User).filter(User.username == username).first()
     if existing:
-        return templates.TemplateResponse("users_add.html", {
-            "request": request, 
-            "user": current_user, 
-            "error": "Username is already taken!"
-        })
+        return templates.TemplateResponse(request=request, name="users_add.html", context={"user": current_user, 
+            "error": "Username is already taken!"})
 
     hashed_pwd = pwd_context.hash(password)
     new_user = User(

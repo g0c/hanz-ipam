@@ -1,4 +1,4 @@
-#!/home/su/projects/hanz-ipam/venv/bin/python
+#!/home/su/projects/hanz-ipam/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

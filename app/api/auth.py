@@ -67,7 +67,7 @@ def authenticate_via_ad(username, password):
 
 @router.get("/login")
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="login.html", context={})
 
 @router.post("/login")
 async def login(
@@ -118,10 +118,7 @@ async def login(
             details="Neuspješan pokušaj prijave ili deaktiviran račun.",
             source_ip=client_ip
         )
-        return templates.TemplateResponse("login.html", {
-            "request": request, 
-            "error": "Neispravno korisničko ime ili lozinka"
-        })
+        return templates.TemplateResponse(request=request, name="login.html", context={"error": "Neispravno korisničko ime ili lozinka"})
 
     # KOMENTAR: Bilježenje uspješne prijave u Audit Log s ispravnim IP-om
     audit_service.log_event(
